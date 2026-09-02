@@ -52,7 +52,13 @@ describe("matchesSearch", () => {
   });
 
   it("does not blow up on leads with missing (null) optional fields", () => {
-    const lead = makeLead({ email: null, budget_range: null, bhk_configuration: null, planning_timeline: null });
+    const lead = makeLead({
+      email: null,
+      ad_group_name: null,
+      budget_range: null,
+      bhk_configuration: null,
+      planning_timeline: null,
+    });
     expect(matchesSearch(lead, "Anjali")).toBe(true);
     expect(matchesSearch(lead, "bhk")).toBe(false);
   });
