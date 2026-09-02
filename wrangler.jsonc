@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rba-realtors-lead-viewer",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-09-27",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  // No KV/D1/R2 bindings are required: Supabase is the only datastore and
+  // there is no ISR/ on-disk incremental cache dependency for this app.
+  "observability": {
+    "enabled": true
+  }
+}
