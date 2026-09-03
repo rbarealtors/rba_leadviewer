@@ -12,8 +12,8 @@ cloudflare-env.d.ts
 # Local environment files
 .env*
 !.env.example
-
-# Test and coverage output
+    
+# Test and coverage output+
 coverage/
 
 # Local OS and editor files
