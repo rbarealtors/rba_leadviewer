@@ -64,6 +64,20 @@ label over time; whichever it's called, that's what goes in
 4. Confirm Row Level Security is enabled on `public.leads` (the migration
    enables it and creates the policies described in the schema comments).
 
+### Application roles
+
+Phase 1 supports two application roles in Supabase Auth `app_metadata.role`:
+`admin` and `staff`. The first admin must be assigned manually in the Supabase
+Dashboard by editing the user's app metadata and setting:
+
+```json
+{"role":"admin"}
+```
+
+Users without a role, or with an unknown role, are treated as `staff`. The
+`/users` route is server-side admin-gated but intentionally remains a temporary
+404 until the User Management UI is implemented.
+
 ## Database schema
 
 Single table, `public.leads` — see `supabase/migrations/0001_init.sql` for the

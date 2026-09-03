@@ -1,0 +1,21 @@
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# OpenNext and Cloudflare
+.open-next/
+.wrangler/
+cloudflare-env.d.ts
+
+# Local environment files
+.env*
+!.env.example
+
+# Test and coverage output
+coverage/
+
+# Local OS and editor files
+.DS_Store
+.vscode/

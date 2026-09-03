@@ -61,12 +61,13 @@ export function normalizeGoogleLead(payload: GoogleWebhookPayload): NormalizedLe
   const columns = payload.user_column_data;
 
   const fullName =
-    columnValue(columns, "FULL_NAME") ??
+  columnValue(columns, "FULL_NAME") ??
+  (
     [columnValue(columns, "FIRST_NAME"), columnValue(columns, "LAST_NAME")]
       .filter(Boolean)
       .join(" ")
-      .trim() ||
-    null;
+      .trim() || null
+  );
 
   const submittedAt = payload.lead_submit_time
     ? new Date(payload.lead_submit_time).toISOString()

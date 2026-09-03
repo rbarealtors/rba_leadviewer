@@ -1,7 +1,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Lead } from "@/lib/leads/types";
 import { LeadsClient } from "./LeadsClient";
-import { signOut } from "@/app/login/actions";
+import { AppHeader } from "@/app/AppHeader";
+import { isAdmin } from "@/lib/auth/authorization";
 
 export const dynamic = "force-dynamic";
 
@@ -25,24 +26,7 @@ export default async function LeadsPage() {
 
   return (
     <div className="min-h-screen bg-canvas">
-      <header className="border-b border-line bg-panel">
-        <div className="max-w-[1400px] mx-auto px-6 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-sm font-semibold text-ink">RBA Realtors — Lead Viewer</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-subtle">{user?.email}</span>
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="text-xs text-subtle hover:text-ink border border-line rounded px-2.5 py-1"
-              >
-                Sign out
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
+      <AppHeader email={user?.email} isAdmin={isAdmin(user)} />
 
       <main className="max-w-[1400px] mx-auto px-6 py-5">
         {error ? (
