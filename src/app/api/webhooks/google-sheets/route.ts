@@ -23,34 +23,44 @@ function value(lead: Record<string, unknown>, ...keys: string[]) {
 }
 
 export async function POST(request: Request) {
-  const webhookSecret = process.env.GOOGLE_WEBHOOK_SECRET;
+  const webhookSecret = process.env.META_SHEETS_WEBHOOK_SECRET;
   if (!webhookSecret) {
-    console.error("google-sheets webhook: GOOGLE_WEBHOOK_SECRET is not configured");
+    console.error("google-sheets webhook: META_SHEETS_WEBHOOK_SECRET is not configured");
     return jsonError(500, "Server misconfigured");
   }
 
-  let payload: SheetsWebhookPayload;
+  let body: SheetsWebhookPayload;
   try {
-    payload = (await request.json()) as SheetsWebhookPayload;
+    body = (await request.json()) as SheetsWebhookPayload;
   } catch {
     return jsonError(400, "Invalid JSON body");
   }
 
-  if (payload.secret !== webhookSecret) {
+  console.log("Incoming webhook body:", JSON.stringify(body));
+
+  if (body.secret !== webhookSecret) {
     return jsonError(401, "Unauthorized");
   }
 
-  if (typeof payload.lead !== "object" || payload.lead === null || Array.isArray(payload.lead)) {
+  if (typeof body.lead !== "object" || body.lead === null || Array.isArray(body.lead)) {
     return jsonError(400, "Missing or invalid lead");
   }
 
-  const lead = payload.lead as Record<string, unknown>;
+  const lead = body.lead as Record<string, unknown>;
   const serializedLead = JSON.stringify(lead);
-  const externalLeadId = value(payload as Record<string, unknown>, "external_lead_id", "event_id")
+  const externalLeadId = value(body as Record<string, unknown>, "external_lead_id", "event_id")
     || value(lead, "id", "Lead ID", "lead_id")
     || createHash("sha256").update(serializedLead).digest("hex");
 
-  const submittedAtCandidate = value(lead, "created_at", "Created At", "timestamp", "Timestamp");
+  const submittedAtCandidate = value(
+    lead,
+    "created_at",
+    "created_time",
+    "Created At",
+    "Created Time",
+    "timestamp",
+    "Timestamp",
+  );
   const parsedSubmittedAt = submittedAtCandidate ? new Date(submittedAtCandidate) : new Date();
   const sourceSubmittedAt = Number.isNaN(parsedSubmittedAt.getTime())
     ? new Date().toISOString()
@@ -58,19 +68,24 @@ export async function POST(request: Request) {
 
   try {
     const supabase = createSupabaseAdminClient();
+    const rawPhone = value(lead, "phone", "Phone", "Phone Number", "phone_number", "Phone_Number");
+    const cleanPhone = rawPhone.replace(/^p:/i, "").trim();
     const { error } = await supabase.from("leads").insert({
       external_lead_id: externalLeadId,
-      full_name: value(lead, "Full Name", "full_name", "Name") || "Unknown",
-      phone_number: value(lead, "Phone Number", "phone_number", "Phone"),
+      full_name: value(lead, "Full Name", "full_name", "Full_Name", "Name") || "Unknown",
+      phone_number: cleanPhone || null,
       email: value(lead, "Email", "email"),
-      source: "facebook_sheets_bridge",
+      campaign_name: value(lead, "campaign_name", "Campaign Name"),
+      ad_group_name: value(lead, "ad_group_name", "Ad Group Name"),
+      ad_name: value(lead, "ad_name", "Ad Name"),
+      source: "meta_ads",
       source_submitted_at: sourceSubmittedAt,
       raw_payload: lead,
     });
 
     if (error) {
+      console.log("Supabase insert error:", error);
       if (error.code === "23505") return NextResponse.json({ success: true });
-      console.error("google-sheets webhook: insert failed", { code: error.code });
       return jsonError(500, "Could not persist lead");
     }
 

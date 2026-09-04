@@ -1,4 +1,4 @@
-export type LeadSource = "google_ads" | "meta_ads" | "facebook_sheets_bridge";
+export type LeadSource = "google_ads" | "meta_ads" | "99acres" | "magicbricks";
 export type LeadPlatform = "facebook" | "instagram" | null;
 
 /** Shape of a row as it's inserted into public.leads. */
