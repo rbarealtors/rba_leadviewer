@@ -12,10 +12,34 @@ import { PhoneCell } from "./PhoneCell";
 import { LeadDetailDrawer } from "./LeadDetailDrawer";
 
 type DatePreset = "today" | "yesterday" | "last7" | "last30" | "all" | "custom";
+type DatePreset = "today" | "yesterday" | "last7" | "last7days" | "last30" | "last30days" | "thisMonth" | "all" | "custom";
 type SortKey = "time" | "name" | "budget" | "bhk";
 type ViewMode = "all" | "new";
 
 const DASH = "—";
+
+function getDatePresetLabel(preset: DatePreset, customFrom?: string, customTo?: string): string {
+  switch (preset) {
+    case "today":
+      return "(Today)";
+    case "yesterday":
+      return "(Yesterday)";
+    case "last7":
+    case "last7days":
+      return "(Last 7 Days)";
+    case "last30":
+    case "last30days":
+      return "(Last 30 Days)";
+    case "thisMonth":
+      return "(This Month)";
+    case "all":
+      return "(All Time)";
+    case "custom":
+      return customFrom && customTo ? `(${customFrom} to ${customTo})` : "(Custom)";
+    default:
+      return "";
+  }
+}
 
 function displayOrDash(value: string | null | undefined): string {
   return value && value.trim().length > 0 ? value : DASH;
@@ -82,9 +106,17 @@ function matchesDatePreset(iso: string, preset: DatePreset, customFrom?: string,
     case "yesterday":
       return submittedMs >= todayStart - oneDayMs && submittedMs < todayStart;
     case "last7":
+    case "last7days":
       return submittedMs >= todayStart - 7 * oneDayMs;
     case "last30":
+    case "last30days":
       return submittedMs >= todayStart - 30 * oneDayMs;
+    case "thisMonth": {
+      const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+      const istDate = new Date(Date.now() + IST_OFFSET_MS);
+      const monthStartMs = Date.UTC(istDate.getUTCFullYear(), istDate.getUTCMonth(), 1, 0, 0, 0) - IST_OFFSET_MS;
+      return submittedMs >= monthStartMs;
+    }
     default:
       return true;
   }
@@ -215,6 +247,7 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
   const [bhk, setBhk] = useState<string>("all");
   const [planning, setPlanning] = useState<string>("all");
   const [datePreset, setDatePreset] = useState<DatePreset>("all");
+  const [datePreset, setDatePreset] = useState<DatePreset>("today");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [view, setView] = useState<ViewMode>("all");
@@ -292,10 +325,17 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
       const ms = new Date(l.source_submitted_at).getTime();
       return ms >= todayWindowStartMs && ms <= todayWindowEndMs;
     },
+  // Dynamic KPI metrics matching the active date window
+  const dateLabel = getDatePresetLabel(datePreset, customFrom, customTo);
+  const kpiLeads = (source === "all" ? leads : leads.filter((l) => l.source === source)).filter((l) =>
+    matchesDatePreset(l.source_submitted_at, datePreset, customFrom, customTo)
   );
   const todayTotalCount = todayLeads.length;
   const todayNewCount = todayLeads.filter((l) => !l.viewed_at).length;
   const todayViewedCount = todayTotalCount - todayNewCount;
+  const kpiTotal = kpiLeads.length;
+  const kpiNew = kpiLeads.filter((l) => !l.viewed_at).length;
+  const kpiViewed = kpiTotal - kpiNew;
 
   const googleCount = filtered.filter((l) => l.source === "google_ads").length;
   const metaCount = filtered.filter((l) => l.source === "meta_ads").length;
@@ -463,6 +503,8 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
           <div>
             <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayTotalCount}</div>
             <div className="text-xs text-subtle font-medium mt-0.5">Total Leads (Today)</div>
+            <div className="text-xl font-bold text-ink" suppressHydrationWarning>{kpiTotal}</div>
+            <div className="text-xs text-subtle font-medium mt-0.5">Total Leads {dateLabel}</div>
           </div>
         </div>
 
@@ -473,6 +515,8 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
           <div>
             <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayNewCount}</div>
             <div className="text-xs text-subtle font-medium mt-0.5">New Leads (Today)</div>
+            <div className="text-xl font-bold text-ink" suppressHydrationWarning>{kpiNew}</div>
+            <div className="text-xs text-subtle font-medium mt-0.5">New Leads {dateLabel}</div>
           </div>
         </div>
 
@@ -483,6 +527,8 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
           <div>
             <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayViewedCount}</div>
             <div className="text-xs text-subtle font-medium mt-0.5">Viewed Leads (Today)</div>
+            <div className="text-xl font-bold text-ink" suppressHydrationWarning>{kpiViewed}</div>
+            <div className="text-xs text-subtle font-medium mt-0.5">Viewed Leads {dateLabel}</div>
           </div>
         </div>
       </div>
@@ -873,6 +919,10 @@ function FiltersBar(props: {
                 <option value="yesterday">Yesterday</option>
                 <option value="last7">Last 7 days</option>
                 <option value="last30">Last 30 days</option>
+                <option value="last7days">Last 7 days</option>
+                <option value="last30days">Last 30 days</option>
+                <option value="thisMonth">This month</option>
+                <option value="all">All time</option>
                 <option value="custom">Custom range</option>
               </select>
             </div>
