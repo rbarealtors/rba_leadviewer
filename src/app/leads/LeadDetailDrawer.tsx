@@ -10,28 +10,65 @@ export function LeadDetailDrawer({
   lead,
   onClose,
   onToggleViewed,
+  onRename,
 }: {
   lead: Lead | null;
   onClose: () => void;
   onToggleViewed: (lead: Lead) => void;
+  onRename: (leadId: string, fullName: string) => Promise<{ error: string | null }>;
 }) {
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [copiedPayload, setCopiedPayload] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [isSavingName, setIsSavingName] = useState(false);
 
   // Close drawer on Escape key press
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        onClose();
+        if (isEditingName) {
+          setIsEditingName(false);
+          setNameError(null);
+        } else {
+          onClose();
+        }
       }
     }
     if (lead) {
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
     }
-  }, [lead, onClose]);
+  }, [isEditingName, lead, onClose]);
 
   if (!lead) return null;
+
+  function startEditingName() {
+    if (!lead) return;
+    setNameDraft(lead.full_name || "");
+    setNameError(null);
+    setIsEditingName(true);
+  }
+
+  function cancelEditingName() {
+    setIsEditingName(false);
+    setNameError(null);
+  }
+
+  async function saveName() {
+    if (!lead) return;
+    const fullName = nameDraft.trim();
+    setIsSavingName(true);
+    setNameError(null);
+    const result = await onRename(lead.id, fullName);
+    setIsSavingName(false);
+    if (result.error) {
+      setNameError(result.error);
+      return;
+    }
+    setIsEditingName(false);
+  }
 
   const isNew = !lead.viewed_at;
   const campaign = formatCampaignName(lead.campaign_name);
@@ -99,9 +136,54 @@ export function LeadDetailDrawer({
                 </span>
               )}
             </div>
-            <h2 className="text-base font-bold text-ink truncate">
-              {lead.full_name || "Unnamed Lead"}
-            </h2>
+            {isEditingName ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void saveName();
+                    if (e.key === "Escape") cancelEditingName();
+                  }}
+                  className="min-w-0 w-48 rounded-md border border-line bg-panel px-2 py-1 text-sm font-semibold text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                  aria-label="Lead name"
+                  autoFocus
+                />
+                <button
+                  onClick={() => void saveName()}
+                  disabled={isSavingName}
+                  className="rounded-md p-1 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                  title="Save name"
+                  aria-label="Save name"
+                >
+                  ✓
+                </button>
+                <button
+                  onClick={cancelEditingName}
+                  disabled={isSavingName}
+                  className="rounded-md p-1 text-subtle hover:bg-line/40 hover:text-ink disabled:opacity-50"
+                  title="Cancel editing"
+                  aria-label="Cancel editing"
+                >
+                  ×
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <h2 className={`text-base font-bold truncate ${lead.full_name ? "text-ink" : "text-subtle italic"}`}>
+                  {lead.full_name || "Click to add name"}
+                </h2>
+                <button
+                  onClick={startEditingName}
+                  className="shrink-0 rounded-md p-1 text-subtle hover:bg-line/40 hover:text-ink"
+                  title="Edit lead name"
+                  aria-label="Edit lead name"
+                >
+                  ✎
+                </button>
+              </div>
+            )}
+            {nameError && <p className="text-xs text-red-600 mt-1">{nameError}</p>}
             <p className="text-xs text-subtle mt-0.5" suppressHydrationWarning>
               Submitted {formatIST(lead.source_submitted_at)}
             </p>

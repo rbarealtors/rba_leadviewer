@@ -362,6 +362,28 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
     });
   }
 
+  async function handleRenameLead(leadId: string, fullName: string): Promise<{ error: string | null }> {
+    try {
+      const response = await fetch(`/api/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ full_name: fullName }),
+      });
+      const body = (await response.json()) as { error?: string; lead?: Lead };
+      if (!response.ok || !body.lead) {
+        return { error: body.error || "Could not update lead." };
+      }
+
+      setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, full_name: body.lead!.full_name } : l)));
+      setSelectedLead((prev) =>
+        prev && prev.id === leadId ? { ...prev, full_name: body.lead!.full_name } : prev,
+      );
+      return { error: null };
+    } catch {
+      return { error: "Could not update lead." };
+    }
+  }
+
   return (
     <div className="space-y-4">
       <FiltersBar
@@ -553,6 +575,7 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
         lead={selectedLead}
         onClose={() => setSelectedLead(null)}
         onToggleViewed={handleToggleViewed}
+        onRename={handleRenameLead}
       />
     </div>
   );

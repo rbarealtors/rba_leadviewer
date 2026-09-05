@@ -56,14 +56,14 @@ export function parse99AcresEmail(text: string, subject?: string): Parsed99Acres
 
 /**
  * Extracts full name, specifically targeting the text right below
- * "Details of the response" / "Response Details".
+ * "Details of the response" / "Response Details" / "Details of the Query".
  */
 function extractFullName(text: string): string | null {
-  // Pattern 1: Look for "Details of the response" followed by non-empty line
+  // Pattern 1: Look for a details heading followed by the caller name.
   const lines = text.split(/\r?\n/).map((l) => l.trim());
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] || "";
-    if (/^details of the response\b/i.test(line)) {
+    if (/^details of (?:the )?(?:response|query)\b/i.test(line)) {
       // Find the next non-blank line
       for (let j = i + 1; j < lines.length && j <= i + 4; j++) {
         const nextLine = lines[j] || "";
@@ -78,7 +78,7 @@ function extractFullName(text: string): string | null {
   }
 
   // Pattern 2: Regex across full text
-  const match = text.match(/(?:Details of the response|Response Details)[:\s]*\r?\n+([^\r\n]+)/i);
+  const match = text.match(/(?:Details of the response|Response Details|Details of the Query)[:\s]*\r?\n+([^\r\n]+)/i);
   if (match && match[1]) {
     const candidate = match[1].trim();
     if (candidate && !/^(\+?\d|email:|phone:|mobile:)/i.test(candidate)) {

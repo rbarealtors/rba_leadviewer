@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     ? parseMagicBricksEmail(emailBody, emailSubject)
     : parse99AcresEmail(emailBody, emailSubject);
 
-  if (!parsed.phone_number || parsed.phone_number.trim() === "" || parsed.full_name === "Unknown") {
+  if (!parsed.phone_number || parsed.phone_number.trim() === "") {
     return NextResponse.json(
       { success: true, message: "Ignored non-lead / system notification email" },
       { status: 200 }
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     const supabase = createSupabaseAdminClient();
     const { error } = await supabase.from("leads").insert({
       external_lead_id: parsed.external_lead_id,
-      full_name: parsed.full_name || "Unknown",
+      full_name: parsed.full_name || null,
       phone_number: parsed.phone_number || null,
       email: parsed.email || null,
       campaign_name: parsed.campaign_name || null,

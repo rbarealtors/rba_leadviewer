@@ -21,10 +21,23 @@ Regards,
 99acres Team
 `;
 
+const QUERY_NAME_99ACRES_EMAIL = `
+Details of the Query
+Dinesh
+
++91-9051516266 *(Verified)*
+`;
+
 describe("parse99AcresEmail", () => {
   it("extracts full name from line directly below 'Details of the response'", () => {
     const res = parse99AcresEmail(SAMPLE_99ACRES_EMAIL);
     expect(res.full_name).toBe("Aman Sharma");
+  });
+
+  it("extracts the caller name below 'Details of the Query'", () => {
+    const res = parse99AcresEmail(QUERY_NAME_99ACRES_EMAIL);
+    expect(res.full_name).toBe("Dinesh");
+    expect(res.phone_number).toBe("+919051516266");
   });
 
   it("extracts phone number and normalizes to E.164 (+918054549678)", () => {
