@@ -9,6 +9,8 @@ interface PortalEmailPayload {
   from?: unknown;
   subject?: unknown;
   body?: unknown;
+  date?: unknown;
+  timestamp?: unknown;
 }
 
 function jsonError(status: number, message: string) {
@@ -89,6 +91,21 @@ export async function POST(request: Request) {
 
   try {
     const supabase = createSupabaseAdminClient();
+    let submittedAt = new Date().toISOString();
+    const incomingDate =
+      typeof payload.date === "string" && payload.date.trim()
+        ? payload.date.trim()
+        : typeof payload.timestamp === "string" && payload.timestamp.trim()
+        ? payload.timestamp.trim()
+        : null;
+
+    if (incomingDate) {
+      const parsedDate = new Date(incomingDate);
+      if (!isNaN(parsedDate.getTime())) {
+        submittedAt = parsedDate.toISOString();
+      }
+    }
+
     const { error } = await supabase.from("leads").insert({
       external_lead_id: parsed.external_lead_id,
       full_name: parsed.full_name || null,
@@ -101,7 +118,7 @@ export async function POST(request: Request) {
       bhk_configuration: parsed.bhk_configuration || null,
       planning_timeline: null,
       source,
-      source_submitted_at: new Date().toISOString(),
+      source_submitted_at: submittedAt,
       raw_payload: {
         from: emailFrom,
         subject: emailSubject,
