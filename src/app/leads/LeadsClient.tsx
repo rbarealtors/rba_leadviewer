@@ -238,6 +238,7 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
     };
   }, [supabase]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [source, setSource] = useState<LeadSource | "all">("all");
   const [campaign, setCampaign] = useState<string>("all");
@@ -372,6 +373,31 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
         setSelectedLead((prev) => (prev && prev.id === lead.id ? lead : prev));
       }
     });
+  }
+
+  async function handleMarkSelectedAsViewed() {
+    if (selectedIds.size === 0) return;
+    const idsToUpdate = Array.from(selectedIds);
+    const now = new Date().toISOString();
+
+    setLeads((prev) =>
+      prev.map((lead) =>
+        selectedIds.has(lead.id) && !lead.viewed_at
+          ? { ...lead, viewed_at: now }
+          : lead
+      )
+    );
+
+    const { error } = await supabase
+      .from("leads")
+      .update({ viewed_at: now })
+      .in("id", idsToUpdate);
+
+    if (error) {
+      console.error("Failed to mark selected leads as viewed:", error);
+    }
+
+    setSelectedIds(new Set());
   }
 
   async function handleRenameLead(leadId: string, fullName: string): Promise<{ error: string | null }> {
@@ -553,6 +579,31 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
         </div>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/30 bg-panel px-4 py-3 shadow-lg">
+          <span className="text-sm font-semibold text-ink">{selectedIds.size} selected</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleMarkSelectedAsViewed}
+              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-2xs transition-colors hover:bg-emerald-700"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                <path d="m5 12 4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Mark as Viewed
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink transition-colors hover:bg-canvas"
+            >
+              Deselect All
+            </button>
+          </div>
+        </div>
+      )}
+
       {leads.length === 0 ? (
         <EmptyState title="No leads yet." subtitle="Waiting for submissions…" />
       ) : filtered.length === 0 ? (
@@ -568,6 +619,8 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
             onSelectLead={setSelectedLead}
             onToggleViewed={handleToggleViewed}
             highlightedRows={highlightedRows}
+            selectedIds={selectedIds}
+            setSelectedIds={setSelectedIds}
           />
           <PaginationBar
             startItem={startItem}
@@ -614,6 +667,8 @@ function LeadsTable({
   onSelectLead,
   onToggleViewed,
   highlightedRows,
+  selectedIds,
+  setSelectedIds,
 }: {
   leads: Lead[];
   selectedLeadId?: string;
@@ -623,16 +678,20 @@ function LeadsTable({
   onSelectLead: (lead: Lead) => void;
   onToggleViewed: (lead: Lead) => void;
   highlightedRows: Set<string>;
+  selectedIds: Set<string>;
+  setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
 }) {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
   const allPageSelected = leads.length > 0 && leads.every((l) => selectedIds.has(l.id));
 
   function toggleAll() {
     if (allPageSelected) {
-      setSelectedIds(new Set());
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        leads.forEach((lead) => next.delete(lead.id));
+        return next;
+      });
     } else {
-      setSelectedIds(new Set(leads.map((l) => l.id)));
+      setSelectedIds((prev) => new Set([...prev, ...leads.map((lead) => lead.id)]));
     }
   }
 
