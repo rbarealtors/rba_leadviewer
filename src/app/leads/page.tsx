@@ -5,6 +5,7 @@ import { AppHeader } from "@/app/AppHeader";
 import { isAdmin } from "@/lib/auth/authorization";
 import { resolveGoogleCampaignName, resolveGoogleAdGroupName } from "@/lib/leads/google-ads-map";
 
+
 export const dynamic = "force-dynamic";
 
 export default async function LeadsPage() {
@@ -23,6 +24,7 @@ export default async function LeadsPage() {
     .select("*")
     .order("source_submitted_at", { ascending: false });
 
+  const leads = (data ?? []) as Lead[];
   const rawLeads = (data ?? []) as Lead[];
   const leads: Lead[] = await Promise.all(
     rawLeads.map(async (lead) => {

@@ -34,23 +34,27 @@ function uniqueSorted(values: Array<string | null | undefined>): string[] {
   return Array.from(set).sort((a, b) => a.localeCompare(b));
 }
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
+  
 function formatLeadDateTime(iso: string) {
   try {
     const d = new Date(iso);
-    const dateStr =
-      d.toLocaleDateString("en-GB", {
-        timeZone: "Asia/Kolkata",
-        day: "2-digit",
-        month: "short",
-      }) + ",";
-    const timeStr = d
-      .toLocaleTimeString("en-US", {
-        timeZone: "Asia/Kolkata",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      })
-      .toLowerCase();
+    if (isNaN(d.getTime())) return { dateStr: iso, timeStr: "" };
+
+    // Convert UTC to IST (+05:30) deterministically
+    const utcTime = d.getTime() + d.getTimezoneOffset() * 60000;
+    const istTime = new Date(utcTime + 5.5 * 3600000);
+
+    const day = String(istTime.getDate()).padStart(2, "0");
+    const month = MONTH_NAMES[istTime.getMonth()];
+    const dateStr = `${day} ${month},`;
+
+    let hours = istTime.getHours();
+    const minutes = String(istTime.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "pm" : "am";
+    hours = hours % 12 || 12;
+    const timeStr = `${hours}:${minutes} ${ampm}`;
+
     return { dateStr, timeStr };
   } catch {
     return { dateStr: iso, timeStr: "" };
@@ -438,6 +442,7 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
             <svg className="w-5 h-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
           </div>
           <div>
+            <div className="text-xl font-bold text-ink">{todayTotalCount}</div>
             <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayTotalCount}</div>
             <div className="text-xs text-subtle font-medium mt-0.5">Total Leads (Today)</div>
           </div>
@@ -448,6 +453,7 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
           </div>
           <div>
+            <div className="text-xl font-bold text-ink">{todayNewCount}</div>
             <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayNewCount}</div>
             <div className="text-xs text-subtle font-medium mt-0.5">New Leads (Today)</div>
           </div>
@@ -458,6 +464,7 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
             <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
           </div>
           <div>
+            <div className="text-xl font-bold text-ink">{todayViewedCount}</div>
             <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayViewedCount}</div>
             <div className="text-xs text-subtle font-medium mt-0.5">Viewed Leads (Today)</div>
           </div>
@@ -573,6 +580,14 @@ function LeadsTable({
                         aria-hidden
                       />
                     )}
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-semibold text-ink">
+                        {new Date(lead.source_submitted_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ','}
+                      </span>
+                      <span className="text-xs text-subtle">
+                        {new Date(lead.source_submitted_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()}
+                      </span>
+                    </div>
                     {(() => {
                       const { dateStr, timeStr } = formatLeadDateTime(lead.source_submitted_at);
                       return (

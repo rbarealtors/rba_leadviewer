@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Lead } from "@/lib/leads/types";
 import { formatIST } from "@/lib/time";
 import { formatCampaignName, sanitizePhoneForCopy, buildWhatsAppUrl } from "@/lib/leads/formatters";
+import { resolveGoogleAdGroupName } from "@/lib/leads/google-ads-map";
 import { SourceBadge } from "./SourceBadge";
 
 export function LeadDetailDrawer({
@@ -102,6 +103,7 @@ export function LeadDetailDrawer({
             <h2 className="text-base font-bold text-ink truncate">
               {lead.full_name || "Unnamed Lead"}
             </h2>
+            <p className="text-xs text-subtle mt-0.5">
             <p className="text-xs text-subtle mt-0.5" suppressHydrationWarning>
               Submitted {formatIST(lead.source_submitted_at)}
             </p>
@@ -267,6 +269,7 @@ export function LeadDetailDrawer({
               <div className="flex items-start justify-between gap-4">
                 <span className="text-xs text-subtle">Ad Group / Ad Set</span>
                 <span className="text-xs font-medium text-ink text-right">
+                  {resolveGoogleAdGroupName(lead.ad_group_name) || "—"}
                   {lead.ad_group_name || "—"}
                 </span>
               </div>
@@ -280,6 +283,7 @@ export function LeadDetailDrawer({
 
               <div className="flex items-start justify-between gap-4">
                 <span className="text-xs text-subtle">Submitted At</span>
+                <span className="text-xs font-medium text-ink text-right">
                 <span className="text-xs font-medium text-ink text-right" suppressHydrationWarning>
                   {formatIST(lead.source_submitted_at)}
                 </span>
