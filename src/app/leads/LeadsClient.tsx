@@ -11,7 +11,6 @@ import { SourceBadge } from "./SourceBadge";
 import { PhoneCell } from "./PhoneCell";
 import { LeadDetailDrawer } from "./LeadDetailDrawer";
 
-type DatePreset = "today" | "yesterday" | "last7" | "last30" | "all" | "custom";
 type DatePreset = "today" | "yesterday" | "last7" | "last7days" | "last30" | "last30days" | "thisMonth" | "all" | "custom";
 type SortKey = "time" | "name" | "budget" | "bhk";
 type ViewMode = "all" | "new";
@@ -246,7 +245,6 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
   const [budget, setBudget] = useState<string>("all");
   const [bhk, setBhk] = useState<string>("all");
   const [planning, setPlanning] = useState<string>("all");
-  const [datePreset, setDatePreset] = useState<DatePreset>("all");
   const [datePreset, setDatePreset] = useState<DatePreset>("today");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -319,20 +317,11 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
   const viewedCount = totalCount - newCount;
 
   // Daily intake metrics (Today in 7 PM - 7 PM IST Business Day window)
-  const { startMs: todayWindowStartMs, endMs: todayWindowEndMs } = getIstBusinessDayWindow();
-  const todayLeads = (source === "all" ? leads : leads.filter((l) => l.source === source)).filter(
-    (l) => {
-      const ms = new Date(l.source_submitted_at).getTime();
-      return ms >= todayWindowStartMs && ms <= todayWindowEndMs;
-    },
   // Dynamic KPI metrics matching the active date window
   const dateLabel = getDatePresetLabel(datePreset, customFrom, customTo);
   const kpiLeads = (source === "all" ? leads : leads.filter((l) => l.source === source)).filter((l) =>
     matchesDatePreset(l.source_submitted_at, datePreset, customFrom, customTo)
   );
-  const todayTotalCount = todayLeads.length;
-  const todayNewCount = todayLeads.filter((l) => !l.viewed_at).length;
-  const todayViewedCount = todayTotalCount - todayNewCount;
   const kpiTotal = kpiLeads.length;
   const kpiNew = kpiLeads.filter((l) => !l.viewed_at).length;
   const kpiViewed = kpiTotal - kpiNew;
@@ -501,8 +490,6 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
             <svg className="w-5 h-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
           </div>
           <div>
-            <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayTotalCount}</div>
-            <div className="text-xs text-subtle font-medium mt-0.5">Total Leads (Today)</div>
             <div className="text-xl font-bold text-ink" suppressHydrationWarning>{kpiTotal}</div>
             <div className="text-xs text-subtle font-medium mt-0.5">Total Leads {dateLabel}</div>
           </div>
@@ -513,8 +500,6 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
           </div>
           <div>
-            <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayNewCount}</div>
-            <div className="text-xs text-subtle font-medium mt-0.5">New Leads (Today)</div>
             <div className="text-xl font-bold text-ink" suppressHydrationWarning>{kpiNew}</div>
             <div className="text-xs text-subtle font-medium mt-0.5">New Leads {dateLabel}</div>
           </div>
@@ -525,8 +510,6 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
             <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
           </div>
           <div>
-            <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayViewedCount}</div>
-            <div className="text-xs text-subtle font-medium mt-0.5">Viewed Leads (Today)</div>
             <div className="text-xl font-bold text-ink" suppressHydrationWarning>{kpiViewed}</div>
             <div className="text-xs text-subtle font-medium mt-0.5">Viewed Leads {dateLabel}</div>
           </div>
@@ -914,11 +897,8 @@ function FiltersBar(props: {
                 value={props.datePreset}
                 onChange={(e) => props.onDatePreset(e.target.value as DatePreset)}
               >
-                <option value="all">All time</option>
                 <option value="today">Today</option>
                 <option value="yesterday">Yesterday</option>
-                <option value="last7">Last 7 days</option>
-                <option value="last30">Last 30 days</option>
                 <option value="last7days">Last 7 days</option>
                 <option value="last30days">Last 30 days</option>
                 <option value="thisMonth">This month</option>
@@ -956,7 +936,7 @@ function FiltersBar(props: {
               props.onSource("all");
               props.onCampaign("all");
               props.onAdGroup("all");
-              props.onDatePreset("all");
+              props.onDatePreset("today");
             }}
           >
             Reset
