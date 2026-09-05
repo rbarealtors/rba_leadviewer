@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import type { Lead } from "@/lib/leads/types";
 import { formatIST } from "@/lib/time";
 import { formatCampaignName, sanitizePhoneForCopy, buildWhatsAppUrl } from "@/lib/leads/formatters";
-import { resolveGoogleAdGroupName } from "@/lib/leads/google-ads-map";
 import { SourceBadge } from "./SourceBadge";
 
 export function LeadDetailDrawer({
@@ -103,7 +102,6 @@ export function LeadDetailDrawer({
             <h2 className="text-base font-bold text-ink truncate">
               {lead.full_name || "Unnamed Lead"}
             </h2>
-            <p className="text-xs text-subtle mt-0.5">
             <p className="text-xs text-subtle mt-0.5" suppressHydrationWarning>
               Submitted {formatIST(lead.source_submitted_at)}
             </p>
@@ -151,116 +149,94 @@ export function LeadDetailDrawer({
                   : "bg-panel text-ink hover:bg-canvas border-line"
               }`}
             >
-              {copiedPhone ? (
-                <>
-                  <svg className="w-3.5 h-3.5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span>Phone Copied</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-3.5 h-3.5 text-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                  </svg>
-                  <span>Copy Phone</span>
-                </>
-              )}
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+              <span>{copiedPhone ? "Copied Phone!" : "Copy Phone"}</span>
             </button>
           )}
 
           <button
             onClick={() => onToggleViewed(lead)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium border border-line bg-panel hover:bg-canvas text-ink ml-auto transition-colors"
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+              isNew
+                ? "bg-accent-soft text-accent border-accent/40 hover:bg-accent hover:text-white"
+                : "bg-panel text-subtle hover:text-ink border-line hover:bg-canvas"
+            }`}
           >
             {isNew ? "Mark as Viewed" : "Mark as Unread"}
           </button>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-          {/* Contact Details */}
-          <section className="space-y-3">
+        {/* Scrollable Content Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+          {/* Lead Contact Card */}
+          <section className="bg-canvas/50 border border-line rounded-xl p-4 space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-subtle">
-              Contact Information
+              Contact Details
             </h3>
-            <div className="bg-canvas/50 border border-line rounded-lg p-3 space-y-2.5">
-              <div className="flex items-start justify-between gap-4">
-                <span className="text-xs text-subtle">Full Name</span>
-                <span className="text-xs font-medium text-ink text-right">
-                  {lead.full_name || "—"}
+
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-subtle text-xs">Full Name</span>
+                <span className="font-semibold text-ink">{lead.full_name || "—"}</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-subtle text-xs">Phone Number</span>
+                <span className="font-mono text-ink">
+                  {cleanPhone ? (
+                    <a href={`tel:${cleanPhone}`} className="hover:underline text-accent font-semibold">
+                      {cleanPhone}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
                 </span>
               </div>
 
-              <div className="flex items-start justify-between gap-4">
-                <span className="text-xs text-subtle">Phone Number</span>
-                {cleanPhone ? (
-                  <div className="text-right">
-                    <a
-                      href={`tel:${cleanPhone}`}
-                      className="text-xs font-semibold text-accent hover:underline font-mono"
-                    >
-                      {cleanPhone}
+              <div className="flex items-center justify-between">
+                <span className="text-subtle text-xs">Email Address</span>
+                <span className="font-mono text-ink">
+                  {lead.email ? (
+                    <a href={`mailto:${lead.email}`} className="hover:underline text-accent">
+                      {lead.email}
                     </a>
-                  </div>
-                ) : (
-                  <span className="text-xs text-subtle">—</span>
-                )}
-              </div>
-
-              <div className="flex items-start justify-between gap-4">
-                <span className="text-xs text-subtle">Email Address</span>
-                {lead.email ? (
-                  <a
-                    href={`mailto:${lead.email}`}
-                    className="text-xs font-medium text-accent hover:underline break-all text-right"
-                  >
-                    {lead.email}
-                  </a>
-                ) : (
-                  <span className="text-xs text-subtle">—</span>
-                )}
+                  ) : (
+                    "—"
+                  )}
+                </span>
               </div>
             </div>
           </section>
 
-          {/* Campaign & Ad Details */}
+          {/* Marketing Source & Meta Information */}
           <section className="space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-subtle">
-              Campaign & Ad Context
+              Source & Campaign Details
             </h3>
-            <div className="bg-canvas/50 border border-line rounded-lg p-3 space-y-2.5">
+
+            <div className="space-y-2 text-sm bg-panel border border-line rounded-xl p-4">
               <div className="flex items-start justify-between gap-4">
-                <span className="text-xs text-subtle">Source</span>
+                <span className="text-xs text-subtle">Source Channel</span>
                 <SourceBadge source={lead.source} platform={lead.platform} />
               </div>
 
               <div className="flex items-start justify-between gap-4">
-                <span className="text-xs text-subtle">Campaign</span>
+                <span className="text-xs text-subtle">Campaign Name</span>
                 <div className="text-right">
-                  <div className="text-xs font-medium text-ink">
-                    {campaign.title}
-                  </div>
+                  <span className="font-semibold text-ink block">{campaign.title}</span>
                   {campaign.badges.length > 0 && (
                     <div className="flex flex-wrap justify-end gap-1 mt-1">
-                      {campaign.badges.map((b) => (
+                      {campaign.badges.map((badge) => (
                         <span
-                          key={b}
-                          className="text-[10px] px-1.5 py-0.5 bg-panel text-subtle rounded border border-line font-medium"
+                          key={badge}
+                          className="text-[10px] px-1.5 py-0.2 bg-canvas text-subtle rounded border border-line font-medium"
                         >
-                          {b}
+                          {badge}
                         </span>
                       ))}
-                    </div>
-                  )}
-                  {lead.campaign_name && lead.campaign_name !== campaign.title && (
-                    <div className="text-[11px] text-subtle font-mono mt-0.5" title="Original slug">
-                      {lead.campaign_name}
                     </div>
                   )}
                 </div>
@@ -269,7 +245,6 @@ export function LeadDetailDrawer({
               <div className="flex items-start justify-between gap-4">
                 <span className="text-xs text-subtle">Ad Group / Ad Set</span>
                 <span className="text-xs font-medium text-ink text-right">
-                  {resolveGoogleAdGroupName(lead.ad_group_name) || "—"}
                   {lead.ad_group_name || "—"}
                 </span>
               </div>
@@ -283,7 +258,6 @@ export function LeadDetailDrawer({
 
               <div className="flex items-start justify-between gap-4">
                 <span className="text-xs text-subtle">Submitted At</span>
-                <span className="text-xs font-medium text-ink text-right">
                 <span className="text-xs font-medium text-ink text-right" suppressHydrationWarning>
                   {formatIST(lead.source_submitted_at)}
                 </span>
@@ -308,73 +282,57 @@ export function LeadDetailDrawer({
                 {lead.budget_range && (
                   <div className="p-3 bg-canvas/50 border border-line rounded-lg flex items-center justify-between">
                     <div>
-                      <span className="text-[11px] font-medium text-subtle block">Budget Range</span>
-                      <span className="text-sm font-semibold text-ink">{lead.budget_range}</span>
+                      <span className="text-xs text-subtle block">Budget Range</span>
+                      <span className="font-semibold text-ink text-sm">{lead.budget_range}</span>
                     </div>
-                    <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
-                      Budget
-                    </span>
                   </div>
                 )}
 
                 {lead.bhk_configuration && (
                   <div className="p-3 bg-canvas/50 border border-line rounded-lg flex items-center justify-between">
                     <div>
-                      <span className="text-[11px] font-medium text-subtle block">BHK Configuration</span>
-                      <span className="text-sm font-semibold text-ink">{lead.bhk_configuration}</span>
+                      <span className="text-xs text-subtle block">BHK Configuration</span>
+                      <span className="font-semibold text-ink text-sm">{lead.bhk_configuration}</span>
                     </div>
-                    <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold border border-blue-200">
-                      Config
-                    </span>
                   </div>
                 )}
 
                 {lead.planning_timeline && (
                   <div className="p-3 bg-canvas/50 border border-line rounded-lg flex items-center justify-between">
                     <div>
-                      <span className="text-[11px] font-medium text-subtle block">Planning Timeline</span>
-                      <span className="text-sm font-semibold text-ink">{lead.planning_timeline}</span>
+                      <span className="text-xs text-subtle block">Planning Timeline</span>
+                      <span className="font-semibold text-ink text-sm">{lead.planning_timeline}</span>
                     </div>
-                    <span className="text-xs px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold border border-purple-200">
-                      Timeline
-                    </span>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="p-4 bg-canvas/40 border border-line rounded-lg text-center">
-                <p className="text-xs text-subtle">No questionnaire responses recorded for this lead.</p>
+              <div className="p-4 bg-canvas/30 border border-line/60 rounded-lg text-center text-subtle text-xs">
+                No questionnaire responses provided for this lead.
               </div>
             )}
           </section>
 
-          {/* Raw Payload Collapsible */}
-          <section className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-subtle">
-              Raw Payload (Debug)
-            </h3>
-            <details className="group border border-line rounded-lg bg-canvas/30 overflow-hidden">
-              <summary className="cursor-pointer px-4 py-2.5 text-xs font-medium text-ink hover:bg-canvas flex items-center justify-between select-none">
-                <span>View Full JSON Payload</span>
-                <span className="text-subtle text-[11px] group-open:rotate-180 transition-transform">
-                  ▼
-                </span>
-              </summary>
-              <div className="p-3 border-t border-line bg-slate-900 text-slate-100">
-                <div className="flex justify-end mb-2">
-                  <button
-                    type="button"
-                    onClick={handleCopyPayload}
-                    className="text-[11px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition-colors inline-flex items-center gap-1"
-                  >
-                    {copiedPayload ? "Copied JSON!" : "Copy JSON"}
-                  </button>
-                </div>
-                <pre className="text-[11px] font-mono overflow-auto max-h-72 whitespace-pre-wrap break-all leading-relaxed">
-                  {JSON.stringify(lead.raw_payload, null, 2)}
-                </pre>
-              </div>
-            </details>
+          {/* Raw Payload Section */}
+          <section className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-subtle">
+                Raw Payload Debug Data
+              </h3>
+              {lead.raw_payload && (
+                <button
+                  type="button"
+                  onClick={handleCopyPayload}
+                  className="text-xs text-accent hover:underline font-medium"
+                >
+                  {copiedPayload ? "Copied JSON!" : "Copy Raw JSON"}
+                </button>
+              )}
+            </div>
+
+            <pre className="p-4 bg-canvas border border-line rounded-xl text-xs font-mono text-ink overflow-x-auto max-h-60 whitespace-pre-wrap break-all leading-relaxed">
+              {lead.raw_payload ? JSON.stringify(lead.raw_payload, null, 2) : "No raw payload available."}
+            </pre>
           </section>
         </div>
       </div>

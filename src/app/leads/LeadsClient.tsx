@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useMemo, useState, useTransition } from "react";
 import type { Lead, LeadSource } from "@/lib/leads/types";
-import { formatIST, istDaysAgoStartUtc } from "@/lib/time";
+import { formatIST, istDaysAgoStartUtc, getIstBusinessDayWindow } from "@/lib/time";
 import { matchesSearch } from "@/lib/leads/search";
 import { formatCampaignName } from "@/lib/leads/formatters";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -73,12 +73,12 @@ function matchesDatePreset(iso: string, preset: DatePreset, customFrom?: string,
     return submittedMs >= fromMs && submittedMs <= toMs;
   }
 
-  const todayStart = new Date(istDaysAgoStartUtc(0)).getTime();
+  const { startMs: todayStart, endMs: todayEnd } = getIstBusinessDayWindow();
   const oneDayMs = 24 * 60 * 60 * 1000;
 
   switch (preset) {
     case "today":
-      return submittedMs >= todayStart;
+      return submittedMs >= todayStart && submittedMs <= todayEnd;
     case "yesterday":
       return submittedMs >= todayStart - oneDayMs && submittedMs < todayStart;
     case "last7":
@@ -222,6 +222,13 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [, startTransition] = useTransition();
 
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, source, campaign, adGroup, budget, bhk, planning, datePreset, customFrom, customTo, view, sortKey, sortDir, pageSize]);
+
   const campaignOptions = useMemo(() => uniqueSorted(leads.map((l) => l.campaign_name)), [leads]);
   const adGroupOptions = useMemo(() => uniqueSorted(leads.map((l) => l.ad_group_name)), [leads]);
   const budgetOptions = useMemo(() => uniqueSorted(leads.map((l) => l.budget_range)), [leads]);
@@ -265,14 +272,26 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
     return result;
   }, [leads, search, source, campaign, adGroup, budget, bhk, planning, datePreset, customFrom, customTo, sortKey, sortDir, view]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startItem = filtered.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1;
+  const endItem = Math.min(safeCurrentPage * pageSize, filtered.length);
+
+  const paginatedLeads = useMemo(() => {
+    return filtered.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
+  }, [filtered, safeCurrentPage, pageSize]);
+
   const totalCount = filtered.length;
   const newCount = filtered.filter((l) => !l.viewed_at).length;
   const viewedCount = totalCount - newCount;
 
-  // Daily intake metrics (Today in IST)
-  const todayStartMs = new Date(istDaysAgoStartUtc(0)).getTime();
+  // Daily intake metrics (Today in 7 PM - 7 PM IST Business Day window)
+  const { startMs: todayWindowStartMs, endMs: todayWindowEndMs } = getIstBusinessDayWindow();
   const todayLeads = (source === "all" ? leads : leads.filter((l) => l.source === source)).filter(
-    (l) => new Date(l.source_submitted_at).getTime() >= todayStartMs,
+    (l) => {
+      const ms = new Date(l.source_submitted_at).getTime();
+      return ms >= todayWindowStartMs && ms <= todayWindowEndMs;
+    },
   );
   const todayTotalCount = todayLeads.length;
   const todayNewCount = todayLeads.filter((l) => !l.viewed_at).length;
@@ -442,7 +461,6 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
             <svg className="w-5 h-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
           </div>
           <div>
-            <div className="text-xl font-bold text-ink">{todayTotalCount}</div>
             <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayTotalCount}</div>
             <div className="text-xs text-subtle font-medium mt-0.5">Total Leads (Today)</div>
           </div>
@@ -453,7 +471,6 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
           </div>
           <div>
-            <div className="text-xl font-bold text-ink">{todayNewCount}</div>
             <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayNewCount}</div>
             <div className="text-xs text-subtle font-medium mt-0.5">New Leads (Today)</div>
           </div>
@@ -464,7 +481,6 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
             <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
           </div>
           <div>
-            <div className="text-xl font-bold text-ink">{todayViewedCount}</div>
             <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayViewedCount}</div>
             <div className="text-xs text-subtle font-medium mt-0.5">Viewed Leads (Today)</div>
           </div>
@@ -476,16 +492,31 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
       ) : filtered.length === 0 ? (
         <EmptyState title="No leads match your search or filters." />
       ) : (
-        <LeadsTable
-          leads={filtered}
-          selectedLeadId={selectedLead?.id}
-          sortKey={sortKey}
-          sortDir={sortDir}
-          onSort={toggleSort}
-          onSelectLead={setSelectedLead}
-          onToggleViewed={handleToggleViewed}
-          highlightedRows={highlightedRows}
-        />
+        <>
+          <LeadsTable
+            leads={paginatedLeads}
+            selectedLeadId={selectedLead?.id}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={toggleSort}
+            onSelectLead={setSelectedLead}
+            onToggleViewed={handleToggleViewed}
+            highlightedRows={highlightedRows}
+          />
+          <PaginationBar
+            startItem={startItem}
+            endItem={endItem}
+            totalCount={totalCount}
+            pageSize={pageSize}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+            currentPage={safeCurrentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </>
       )}
 
       {/* Slide-over Detail Drawer */}
@@ -526,6 +557,27 @@ function LeadsTable({
   onToggleViewed: (lead: Lead) => void;
   highlightedRows: Set<string>;
 }) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const allPageSelected = leads.length > 0 && leads.every((l) => selectedIds.has(l.id));
+
+  function toggleAll() {
+    if (allPageSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(leads.map((l) => l.id)));
+    }
+  }
+
+  function toggleOne(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   function sortIndicator(key: SortKey) {
     if (sortKey !== key) return null;
     return <span className="ml-0.5 text-subtle">{sortDir === "asc" ? "↑" : "↓"}</span>;
@@ -536,7 +588,7 @@ function LeadsTable({
       <table className="w-full text-sm min-w-[1100px] border-collapse">
         <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_#e5e7eb]">
           <tr className="text-left text-xs text-subtle bg-white">
-            <Th className="w-[40px] px-4"><input type="checkbox" className="rounded border-line accent-accent" /></Th>
+            <Th className="w-[40px] px-4"><input type="checkbox" checked={allPageSelected} onChange={toggleAll} className="rounded border-line accent-accent cursor-pointer" /></Th>
             <Th onClick={() => onSort("time")}>Date & Time{sortIndicator("time")}</Th>
             <Th>Source</Th>
             <Th onClick={() => onSort("name")}>Name{sortIndicator("name")}</Th>
@@ -567,7 +619,7 @@ function LeadsTable({
               >
                 {/* Checkbox */}
                 <Td className="w-[40px] px-4" onClick={(e: any) => e.stopPropagation()}>
-                  <input type="checkbox" className="rounded border-line accent-accent cursor-pointer" />
+                  <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => toggleOne(lead.id)} className="rounded border-line accent-accent cursor-pointer" />
                 </Td>
                 
                 {/* Date & Time */}
@@ -580,14 +632,6 @@ function LeadsTable({
                         aria-hidden
                       />
                     )}
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-semibold text-ink">
-                        {new Date(lead.source_submitted_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ','}
-                      </span>
-                      <span className="text-xs text-subtle">
-                        {new Date(lead.source_submitted_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()}
-                      </span>
-                    </div>
                     {(() => {
                       const { dateStr, timeStr } = formatLeadDateTime(lead.source_submitted_at);
                       return (
@@ -896,5 +940,80 @@ function OptionSelect({
         </option>
       ))}
     </select>
+  );
+}
+
+function PaginationBar({
+  startItem,
+  endItem,
+  totalCount,
+  pageSize,
+  onPageSizeChange,
+  currentPage,
+  totalPages,
+  onPageChange,
+}: {
+  startItem: number;
+  endItem: number;
+  totalCount: number;
+  pageSize: number;
+  onPageSizeChange: (size: number) => void;
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number | ((prev: number) => number)) => void;
+}) {
+  return (
+    <div className="bg-panel border border-line rounded-lg p-3 px-4 flex flex-wrap items-center justify-between gap-4 text-xs shadow-2xs">
+      {/* Left side: Showing X to Y of Z leads */}
+      <div className="text-subtle font-medium">
+        Showing <span className="font-semibold text-ink">{startItem}</span> to{" "}
+        <span className="font-semibold text-ink">{endItem}</span> of{" "}
+        <span className="font-semibold text-ink">{totalCount}</span> leads
+      </div>
+
+      {/* Right side controls */}
+      <div className="flex flex-wrap items-center gap-4">
+        {/* Rows per page selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-subtle font-medium">Rows per page:</span>
+          <select
+            value={pageSize}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            className="bg-canvas border border-line rounded px-2 py-1 text-ink font-medium outline-none focus:border-accent"
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
+
+        {/* Page indicator */}
+        <div className="text-subtle font-medium">
+          Page <span className="font-semibold text-ink">{currentPage}</span> of{" "}
+          <span className="font-semibold text-ink">{totalPages}</span>
+        </div>
+
+        {/* Previous & Next buttons */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            disabled={currentPage <= 1}
+            onClick={() => onPageChange((p) => Math.max(1, p - 1))}
+            className="px-2.5 py-1 rounded border border-line bg-panel text-ink font-medium hover:bg-canvas disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            disabled={currentPage >= totalPages}
+            onClick={() => onPageChange((p) => Math.min(totalPages, p + 1))}
+            className="px-2.5 py-1 rounded border border-line bg-panel text-ink font-medium hover:bg-canvas disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

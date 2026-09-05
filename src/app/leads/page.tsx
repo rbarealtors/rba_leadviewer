@@ -24,8 +24,7 @@ export default async function LeadsPage() {
     .select("*")
     .order("source_submitted_at", { ascending: false });
 
-  const leads = (data ?? []) as Lead[];
-  const rawLeads = (data ?? []) as Lead[];
+  const rawLeads = (data ?? []);
   const leads: Lead[] = await Promise.all(
     rawLeads.map(async (lead) => {
       if (lead.source === "google_ads") {

@@ -40,3 +40,51 @@ export function istDaysAgoStartUtc(daysAgo: number, from: Date = new Date()): st
     Date.UTC(y!, m! - 1, d!, 0, 0, 0) - 5.5 * 60 * 60 * 1000 - daysAgo * 24 * 60 * 60 * 1000;
   return new Date(istMidnightUtcMs).toISOString();
 }
+
+export interface IstBusinessWindow {
+  startMs: number;
+  endMs: number;
+  startIso: string;
+  endIso: string;
+}
+
+/**
+ * Calculates the 7 PM to 7 PM IST Business Day window for a given reference time (default now).
+ *
+ * In IST (UTC+05:30):
+ * If current IST hour < 19 (7 PM):
+ *   - Window start = Yesterday at 19:00:00 IST
+ *   - Window end   = Today at 18:59:59.999 IST
+ * If current IST hour >= 19 (7 PM):
+ *   - Window start = Today at 19:00:00 IST
+ *   - Window end   = Tomorrow at 18:59:59.999 IST
+ */
+export function getIstBusinessDayWindow(from: Date = new Date()): IstBusinessWindow {
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+  // Shift to IST virtual UTC to extract IST calendar components deterministically
+  const istDate = new Date(from.getTime() + IST_OFFSET_MS);
+  const year = istDate.getUTCFullYear();
+  const month = istDate.getUTCMonth();
+  const day = istDate.getUTCDate();
+  const hour = istDate.getUTCHours();
+
+  let startDay = day;
+  let endDay = day;
+
+  if (hour < 19) {
+    startDay = day - 1;
+  } else {
+    endDay = day + 1;
+  }
+
+  const startMs = Date.UTC(year, month, startDay, 19, 0, 0, 0) - IST_OFFSET_MS;
+  const endMs = Date.UTC(year, month, endDay, 18, 59, 59, 999) - IST_OFFSET_MS;
+
+  return {
+    startMs,
+    endMs,
+    startIso: new Date(startMs).toISOString(),
+    endIso: new Date(endMs).toISOString(),
+  };
+}
+
