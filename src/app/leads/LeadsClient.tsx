@@ -260,11 +260,26 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
     setCurrentPage(1);
   }, [search, source, campaign, adGroup, budget, bhk, planning, datePreset, customFrom, customTo, view, sortKey, sortDir, pageSize]);
 
-  const campaignOptions = useMemo(() => uniqueSorted(leads.map((l) => l.campaign_name)), [leads]);
+  const availableCampaigns = useMemo(() => {
+    if (source === "all") return [];
+    return Array.from(
+      new Set(
+        leads
+          .filter((l) => l.source === source && l.campaign_name)
+          .map((l) => l.campaign_name!.trim())
+      )
+    ).sort((a, b) => a.localeCompare(b));
+  }, [leads, source]);
   const adGroupOptions = useMemo(() => uniqueSorted(leads.map((l) => l.ad_group_name)), [leads]);
   const budgetOptions = useMemo(() => uniqueSorted(leads.map((l) => l.budget_range)), [leads]);
   const bhkOptions = useMemo(() => uniqueSorted(leads.map((l) => l.bhk_configuration)), [leads]);
   const planningOptions = useMemo(() => uniqueSorted(leads.map((l) => l.planning_timeline)), [leads]);
+
+  useEffect(() => {
+    if (source === "all" || (campaign !== "all" && !availableCampaigns.includes(campaign))) {
+      setCampaign("all");
+    }
+  }, [source, campaign, availableCampaigns]);
 
   const filtered = useMemo(() => {
     let result = leads.filter((lead) => {
@@ -387,10 +402,13 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
         search={search}
         onSearch={setSearch}
         source={source}
-        onSource={setSource}
+        onSource={(nextSource) => {
+          setSource(nextSource);
+          if (nextSource === "all") setCampaign("all");
+        }}
         campaign={campaign}
         onCampaign={setCampaign}
-        campaignOptions={campaignOptions}
+        campaignOptions={availableCampaigns}
         adGroup={adGroup}
         onAdGroup={setAdGroup}
         adGroupOptions={adGroupOptions}
@@ -890,11 +908,13 @@ function FiltersBar(props: {
           </select>
 
           <OptionSelect
-            label="All campaigns"
+            label={props.source === "all" ? "Select lead source first" : "All campaigns"}
             value={props.campaign}
             onChange={props.onCampaign}
             options={props.campaignOptions}
             className={selectClass}
+            disabled={props.source === "all"}
+            showWhenEmpty
           />
           <OptionSelect
             label="All ad groups"
@@ -973,16 +993,20 @@ function OptionSelect({
   onChange,
   options,
   className,
+  disabled = false,
+  showWhenEmpty = false,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: string[];
   className: string;
+  disabled?: boolean;
+  showWhenEmpty?: boolean;
 }) {
-  if (options.length === 0) return null;
+  if (options.length === 0 && !showWhenEmpty) return null;
   return (
-    <select className={className} value={value} onChange={(e) => onChange(e.target.value)}>
+    <select className={className} value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled}>
       <option value="all">{label}</option>
       {options.map((opt) => (
         <option key={opt} value={opt}>
