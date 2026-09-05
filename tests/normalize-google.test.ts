@@ -27,9 +27,9 @@ function basePayload(overrides: Partial<GoogleWebhookPayload> = {}): GoogleWebho
   };
 }
 
-describe("normalizeGoogleLead", () => {
-  it("maps a full real-estate lead into the common shape", () => {
-    const lead = normalizeGoogleLead(basePayload());
+describe("normalizeGoogleLead", async () => {
+  it("maps a full real-estate lead into the common shape", async () => {
+    const lead = await normalizeGoogleLead(basePayload());
 
     expect(lead.source).toBe("google_ads");
     expect(lead.external_lead_id).toBe("123456789");
@@ -43,20 +43,20 @@ describe("normalizeGoogleLead", () => {
     expect(lead.raw_payload).toBeTruthy();
   });
 
-  it("falls back to FIRST_NAME + LAST_NAME when FULL_NAME is absent", () => {
+  it("falls back to FIRST_NAME + LAST_NAME when FULL_NAME is absent", async () => {
     const payload = basePayload({
       user_column_data: [
         { column_id: "FIRST_NAME", string_value: "Priya" },
         { column_id: "LAST_NAME", string_value: "Sharma" },
       ],
     });
-    const lead = normalizeGoogleLead(payload);
+    const lead = await normalizeGoogleLead(payload);
     expect(lead.full_name).toBe("Priya Sharma");
   });
 
-  it("leaves optional fields null when not present, never invents values", () => {
+  it("leaves optional fields null when not present, never invents values", async () => {
     const payload = basePayload({ user_column_data: [{ column_id: "FULL_NAME", string_value: "Only Name" }] });
-    const lead = normalizeGoogleLead(payload);
+    const lead = await normalizeGoogleLead(payload);
     expect(lead.email).toBeNull();
     expect(lead.phone_number).toBeNull();
     expect(lead.budget_range).toBeNull();
@@ -64,14 +64,14 @@ describe("normalizeGoogleLead", () => {
     expect(lead.planning_timeline).toBeNull();
   });
 
-  it("throws GoogleWebhookValidationError when lead_id is missing", () => {
+  it("throws GoogleWebhookValidationError when lead_id is missing", async () => {
     const payload = basePayload();
     delete payload.lead_id;
-    expect(() => normalizeGoogleLead(payload)).toThrow(GoogleWebhookValidationError);
+    await expect(normalizeGoogleLead(payload)).rejects.toThrow(GoogleWebhookValidationError);
   });
 
-  it("ignores unrecognized fields for forward compatibility", () => {
+  it("ignores unrecognized fields for forward compatibility", async () => {
     const payload = { ...basePayload(), some_future_field: { nested: true } };
-    expect(() => normalizeGoogleLead(payload)).not.toThrow();
+    await expect(normalizeGoogleLead(payload)).resolves.not.toThrow();
   });
 });

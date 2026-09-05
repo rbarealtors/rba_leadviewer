@@ -2,6 +2,8 @@
  * Utilities for formatting lead data on the leads dashboard.
  */
 
+
+
 /**
  * Sanitizes a phone number for use with WhatsApp Web / Click-to-Chat.
  * WhatsApp requires only digits with a country code, omitting any '+' or leading zeros.
@@ -83,8 +85,10 @@ export function formatCampaignName(raw: string | null | undefined): FormattedCam
     return { title: "—", badges: [] };
   }
 
+  const resolved = raw;
+
   // Replace underscores and consecutive whitespace with single spaces
-  let text = raw.replace(/_+/g, " ").trim();
+  let text = resolved.replace(/_+/g, " ").trim();
   const badges: string[] = [];
 
   // Patterns for trailing tags to extract as badges

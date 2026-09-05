@@ -1,11 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import { signOut } from "@/app/login/actions";
+import { usePathname } from "next/navigation";
 
 export function AppHeader({ email, isAdmin }: { email?: string; isAdmin: boolean }) {
-  // We can't use `usePathname` in a Server Component natively if this is one, 
-  // wait, is AppHeader a client component? It doesn't have "use client" so it's a server component.
-  // Actually, wait, let's just use "use client" so we can check the active path, OR just hardcode the "Leads" styling if we don't have a dynamic path check.
-  // I will add "use client" to the top.
+  const pathname = usePathname() ?? "";
+  const isUsers = pathname.startsWith("/users");
+  const isSettings = pathname.startsWith("/settings");
+  const isLeads = pathname.startsWith("/leads") || (!isUsers && !isSettings && pathname === "/");
+
   return (
     <header className="border-b border-line bg-panel">
       <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between gap-4">
@@ -39,15 +43,33 @@ export function AppHeader({ email, isAdmin }: { email?: string; isAdmin: boolean
             <nav aria-label="Primary navigation" className="flex items-center gap-6 text-sm h-full font-medium">
               <Link
                 href="/leads"
-                className="h-full flex items-center text-accent border-b-2 border-accent"
+                className={`h-full flex items-center border-b-2 transition-colors ${
+                  isLeads
+                    ? "text-accent border-accent"
+                    : "text-subtle hover:text-ink border-transparent"
+                }`}
               >
                 Leads
               </Link>
               <Link
                 href="/users"
-                className="h-full flex items-center text-subtle hover:text-ink border-b-2 border-transparent"
+                className={`h-full flex items-center border-b-2 transition-colors ${
+                  isUsers
+                    ? "text-accent border-accent"
+                    : "text-subtle hover:text-ink border-transparent"
+                }`}
               >
                 User Management
+              </Link>
+              <Link
+                href="/settings/campaign-mappings"
+                className={`h-full flex items-center border-b-2 transition-colors ${
+                  isSettings
+                    ? "text-accent border-accent"
+                    : "text-subtle hover:text-ink border-transparent"
+                }`}
+              >
+                Campaign Mappings
               </Link>
             </nav>
           )}

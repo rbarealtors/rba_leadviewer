@@ -1,14 +1,6 @@
 import type { NormalizedLead } from "./types";
+import { resolveGoogleCampaignName, resolveGoogleAdGroupName } from "./google-ads-map";
 
-/**
- * Matches Google's WebhookLead schema:
- * https://developers.google.com/google-ads/webhook/docs/implementation
- *
- * We intentionally type this loosely (no strict interface) and only read
- * the fields we need, per Google's own forward-compatibility guidance:
- * "design your JSON parser to gracefully ignore any fields ... your system
- * does not explicitly consume."
- */
 export interface GoogleWebhookColumn {
   column_id?: string;
   column_name?: string;
@@ -38,22 +30,19 @@ function columnValue(
   return value ? value : null;
 }
 
+function findColumnByPattern(
+  columns: GoogleWebhookColumn[] | undefined,
+  testFn: (id: string, name: string) => boolean,
+): string | null {
+  const match = columns?.find((c) =>
+    testFn((c.column_id ?? "").toLowerCase(), (c.column_name ?? "").toLowerCase()),
+  );
+  return match?.string_value?.trim() || null;
+}
+
 export class GoogleWebhookValidationError extends Error {}
 
-/**
- * Normalizes a Google Ads lead-form webhook payload into the common lead
- * shape.
- *
- * NOTE: Google's webhook payload only carries numeric `campaign_id` /
- * `adgroup_id` / `form_id` — it does not include human-readable campaign or
- * ad group *names*. There is no supported field for that in the current
- * webhook schema. Since the UI needs *some* identifying label, we fall back
- * to `Campaign {campaign_id}` / `Form {form_id}` rather than leaving it
- * blank, and store the raw IDs in raw_payload for anyone who needs to cross
- * reference them against the Google Ads UI. This is a known limitation of
- * Google's webhook (not of this app) — documented in the README.
- */
-export function normalizeGoogleLead(payload: GoogleWebhookPayload): NormalizedLead {
+export async function normalizeGoogleLead(payload: GoogleWebhookPayload): Promise<NormalizedLead> {
   if (!payload.lead_id) {
     throw new GoogleWebhookValidationError("Missing lead_id in Google webhook payload");
   }
@@ -61,17 +50,40 @@ export function normalizeGoogleLead(payload: GoogleWebhookPayload): NormalizedLe
   const columns = payload.user_column_data;
 
   const fullName =
-  columnValue(columns, "FULL_NAME") ??
-  (
-    [columnValue(columns, "FIRST_NAME"), columnValue(columns, "LAST_NAME")]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || null
-  );
+    columnValue(columns, "FULL_NAME") ??
+    (
+      [columnValue(columns, "FIRST_NAME"), columnValue(columns, "LAST_NAME")]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || null
+    );
 
   const submittedAt = payload.lead_submit_time
     ? new Date(payload.lead_submit_time).toISOString()
     : new Date().toISOString();
+
+  const resolvedCampaign = payload.campaign_id
+    ? (await resolveGoogleCampaignName(payload.campaign_id)) || `Campaign ${payload.campaign_id}`
+    : null;
+
+  const resolvedAdGroup = payload.adgroup_id
+    ? (await resolveGoogleAdGroupName(payload.adgroup_id)) || `Ad Group ${payload.adgroup_id}`
+    : null;
+
+  const budget =
+    columnValue(columns, "PRICE_RANGE") ??
+    columnValue(columns, "TRAVEL_BUDGET") ??
+    findColumnByPattern(columns, (id, name) => id.includes("budget") || name.includes("budget"));
+
+  const bhk =
+    columnValue(columns, "NUMBER_OF_BEDROOMS") ??
+    columnValue(columns, "PROPERTY_TYPE") ??
+    findColumnByPattern(columns, (id, name) => id.includes("configuration") || id.includes("bedroom") || id.includes("bhk") || name.includes("configuration"));
+
+  const timeline =
+    columnValue(columns, "PURCHASE_TIMELINE") ??
+    columnValue(columns, "NEXT_PLANNED_PURCHASE") ??
+    findColumnByPattern(columns, (id, name) => id.includes("purchase") || id.includes("timeline") || name.includes("purchase") || name.includes("timeline"));
 
   return {
     source: "google_ads",
@@ -79,13 +91,12 @@ export function normalizeGoogleLead(payload: GoogleWebhookPayload): NormalizedLe
     full_name: fullName || null,
     phone_number: columnValue(columns, "PHONE_NUMBER"),
     email: columnValue(columns, "EMAIL") ?? columnValue(columns, "WORK_EMAIL"),
-    campaign_name: payload.campaign_id ? `Campaign ${payload.campaign_id}` : null,
-    ad_group_name: payload.adgroup_id ? `Ad Group ${payload.adgroup_id}` : null,
+    campaign_name: resolvedCampaign,
+    ad_group_name: resolvedAdGroup,
     ad_name: null,
-    budget_range: columnValue(columns, "PRICE_RANGE") ?? columnValue(columns, "TRAVEL_BUDGET"),
-    bhk_configuration: columnValue(columns, "NUMBER_OF_BEDROOMS") ?? columnValue(columns, "PROPERTY_TYPE"),
-    planning_timeline:
-      columnValue(columns, "PURCHASE_TIMELINE") ?? columnValue(columns, "NEXT_PLANNED_PURCHASE"),
+    budget_range: budget,
+    bhk_configuration: bhk,
+    planning_timeline: timeline,
     platform: null,
     source_submitted_at: submittedAt,
     raw_payload: payload as Record<string, unknown>,

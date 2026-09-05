@@ -36,7 +36,11 @@ export function LeadDetailDrawer({
   const isNew = !lead.viewed_at;
   const campaign = formatCampaignName(lead.campaign_name);
   const cleanPhone = lead.phone_number ? lead.phone_number.replace(/^p:/i, "").trim() : "";
-  const waUrl = buildWhatsAppUrl(lead.phone_number, lead.full_name, lead.campaign_name);
+  const waUrl = buildWhatsAppUrl(
+    lead.phone_number,
+    lead.full_name,
+    campaign.title && campaign.title !== "—" ? campaign.title : lead.campaign_name
+  );
 
   async function handleCopyPhone() {
     if (!lead?.phone_number) return;
@@ -98,7 +102,7 @@ export function LeadDetailDrawer({
             <h2 className="text-base font-bold text-ink truncate">
               {lead.full_name || "Unnamed Lead"}
             </h2>
-            <p className="text-xs text-subtle mt-0.5">
+            <p className="text-xs text-subtle mt-0.5" suppressHydrationWarning>
               Submitted {formatIST(lead.source_submitted_at)}
             </p>
           </div>
@@ -252,7 +256,7 @@ export function LeadDetailDrawer({
                       ))}
                     </div>
                   )}
-                  {lead.campaign_name && (
+                  {lead.campaign_name && lead.campaign_name !== campaign.title && (
                     <div className="text-[11px] text-subtle font-mono mt-0.5" title="Original slug">
                       {lead.campaign_name}
                     </div>
@@ -276,7 +280,7 @@ export function LeadDetailDrawer({
 
               <div className="flex items-start justify-between gap-4">
                 <span className="text-xs text-subtle">Submitted At</span>
-                <span className="text-xs font-medium text-ink text-right">
+                <span className="text-xs font-medium text-ink text-right" suppressHydrationWarning>
                   {formatIST(lead.source_submitted_at)}
                 </span>
               </div>

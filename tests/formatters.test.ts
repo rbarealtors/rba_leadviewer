@@ -89,6 +89,7 @@ describe("formatCampaignName", () => {
     expect(res.badges).toEqual([]);
   });
 
+
   it("handles null or empty campaign names gracefully", () => {
     expect(formatCampaignName(null)).toEqual({ title: "—", badges: [] });
     expect(formatCampaignName("")).toEqual({ title: "—", badges: [] });

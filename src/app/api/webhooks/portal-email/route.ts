@@ -50,16 +50,42 @@ export async function POST(request: Request) {
   const emailSubject = typeof payload.subject === "string" ? payload.subject : undefined;
   const emailFrom = typeof payload.from === "string" ? payload.from : undefined;
 
+  const emailBodyStr = emailBody.toLowerCase();
+  const emailSubjectStr = (emailSubject || "").toLowerCase();
+
+  const skipKeywords = [
+    "photos deleted",
+    "listing expired",
+    "invoice",
+    "verification",
+    "screening",
+  ];
+
+  for (const keyword of skipKeywords) {
+    if (emailSubjectStr.includes(keyword) || emailBodyStr.includes(keyword)) {
+      return NextResponse.json({ success: true, message: "Skipped non-lead system notification" }, { status: 200 });
+    }
+  }
+
   // Detect whether the notification is from MagicBricks or 99acres
   const isMagicBricks =
     (Boolean(emailFrom) && emailFrom!.toLowerCase().includes("magicbricks.com")) ||
     emailBody.toLowerCase().includes("magicbricks") ||
     (Boolean(emailSubject) && emailSubject!.toLowerCase().includes("magicbricks"));
+    emailBodyStr.includes("magicbricks") ||
+    emailSubjectStr.includes("magicbricks");
 
   const source: LeadSource = isMagicBricks ? "magicbricks" : "99acres";
   const parsed = isMagicBricks
     ? parseMagicBricksEmail(emailBody, emailSubject)
     : parse99AcresEmail(emailBody, emailSubject);
+
+  if (!parsed.phone_number || parsed.phone_number.trim() === "" || parsed.full_name === "Unknown") {
+    return NextResponse.json(
+      { success: true, message: "Ignored non-lead / system notification email" },
+      { status: 200 }
+    );
+  }
 
   try {
     const supabase = createSupabaseAdminClient();

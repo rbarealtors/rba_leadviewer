@@ -3,27 +3,27 @@ import { dedupeKey } from "../src/lib/leads/search";
 import { normalizeGoogleLead } from "../src/lib/leads/normalize-google";
 import { normalizeMetaLead } from "../src/lib/leads/normalize-meta";
 
-describe("dedupeKey", () => {
-  it("is stable for the same source + external_lead_id", () => {
+describe("dedupeKey", async () => {
+  it("is stable for the same source + external_lead_id", async () => {
     const a = dedupeKey({ source: "google_ads", external_lead_id: "123456789" });
     const b = dedupeKey({ source: "google_ads", external_lead_id: "123456789" });
     expect(a).toBe(b);
   });
 
-  it("differs across sources for the same numeric id (per spec section 7)", () => {
+  it("differs across sources for the same numeric id (per spec section 7)", async () => {
     const google = dedupeKey({ source: "google_ads", external_lead_id: "123456789" });
     const meta = dedupeKey({ source: "meta_ads", external_lead_id: "123456789" });
     expect(google).not.toBe(meta);
   });
 
-  it("differs for different lead ids from the same source", () => {
+  it("differs for different lead ids from the same source", async () => {
     const a = dedupeKey({ source: "meta_ads", external_lead_id: "1" });
     const b = dedupeKey({ source: "meta_ads", external_lead_id: "2" });
     expect(a).not.toBe(b);
   });
 
-  it("normalized Google and Meta leads produce dedupe keys consistent with their own ids", () => {
-    const googleLead = normalizeGoogleLead({
+  it("normalized Google and Meta leads produce dedupe keys consistent with their own ids", async () => {
+    const googleLead = await normalizeGoogleLead({
       lead_id: "G1",
       google_key: "x",
       user_column_data: [{ column_id: "FULL_NAME", string_value: "Test" }],
@@ -66,8 +66,8 @@ describe("dedupeKey", () => {
  * dev server wired to a real Supabase project, and confirming exactly one
  * row exists afterward.
  */
-describe.skip("database-level idempotency (requires a live Supabase instance)", () => {
-  it("documented above — run manually against a real database", () => {
+describe.skip("database-level idempotency (requires a live Supabase instance)", async () => {
+  it("documented above — run manually against a real database", async () => {
     expect(true).toBe(true);
   });
 });

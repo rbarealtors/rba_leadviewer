@@ -3,6 +3,7 @@ import type { Lead } from "@/lib/leads/types";
 import { LeadsClient } from "./LeadsClient";
 import { AppHeader } from "@/app/AppHeader";
 import { isAdmin } from "@/lib/auth/authorization";
+import { resolveGoogleCampaignName, resolveGoogleAdGroupName } from "@/lib/leads/google-ads-map";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,21 @@ export default async function LeadsPage() {
     .select("*")
     .order("source_submitted_at", { ascending: false });
 
-  const leads = (data ?? []) as Lead[];
+  const rawLeads = (data ?? []) as Lead[];
+  const leads: Lead[] = await Promise.all(
+    rawLeads.map(async (lead) => {
+      if (lead.source === "google_ads") {
+        const campaignName = (await resolveGoogleCampaignName(lead.campaign_name)) ?? lead.campaign_name;
+        const adGroupName = (await resolveGoogleAdGroupName(lead.ad_group_name)) ?? lead.ad_group_name;
+        return {
+          ...lead,
+          campaign_name: campaignName,
+          ad_group_name: adGroupName,
+        };
+      }
+      return lead;
+    })
+  );
 
   return (
     <div className="min-h-screen bg-canvas">

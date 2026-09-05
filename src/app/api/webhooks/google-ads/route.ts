@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
   let normalized;
   try {
-    normalized = normalizeGoogleLead(payload);
+    normalized = await normalizeGoogleLead(payload);
   } catch (err) {
     if (err instanceof GoogleWebhookValidationError) {
       return jsonError(400, err.message);

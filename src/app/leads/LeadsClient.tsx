@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useRef, useMemo, useState, useTransition } from "react";
 import type { Lead, LeadSource } from "@/lib/leads/types";
 import { formatIST, istDaysAgoStartUtc } from "@/lib/time";
 import { matchesSearch } from "@/lib/leads/search";
 import { formatCampaignName } from "@/lib/leads/formatters";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { setLeadViewed } from "./actions";
 import { SourceBadge } from "./SourceBadge";
 import { PhoneCell } from "./PhoneCell";
@@ -31,6 +32,29 @@ function uniqueSorted(values: Array<string | null | undefined>): string[] {
     if (v && v.trim()) set.add(v.trim());
   }
   return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+function formatLeadDateTime(iso: string) {
+  try {
+    const d = new Date(iso);
+    const dateStr =
+      d.toLocaleDateString("en-GB", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "short",
+      }) + ",";
+    const timeStr = d
+      .toLocaleTimeString("en-US", {
+        timeZone: "Asia/Kolkata",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+      .toLowerCase();
+    return { dateStr, timeStr };
+  } catch {
+    return { dateStr: iso, timeStr: "" };
+  }
 }
 
 function matchesDatePreset(iso: string, preset: DatePreset, customFrom?: string, customTo?: string): boolean {
@@ -61,9 +85,123 @@ function matchesDatePreset(iso: string, preset: DatePreset, customFrom?: string,
       return true;
   }
 }
+function playChime() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.1);
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.05);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 1);
+  } catch (e) {
+    // Ignore if audio context fails
+  }
+}
 
 export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
+  const leadsRef = useRef<Lead[]>(initialLeads);
+  const [highlightedRows, setHighlightedRows] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setLeads(initialLeads);
+  }, [initialLeads]);
+
+  useEffect(() => {
+    leadsRef.current = leads;
+  }, [leads]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-leads")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "leads" },
+        (payload) => {
+          const newLead = payload.new as Lead;
+
+          setLeads((prev) => {
+            if (prev.some((l) => l.id === newLead.id)) return prev;
+            return [newLead, ...prev].sort(
+              (a, b) => new Date(b.source_submitted_at).getTime() - new Date(a.source_submitted_at).getTime()
+            );
+          });
+
+          setHighlightedRows((prev) => new Set(prev).add(newLead.id));
+          setTimeout(() => {
+            setHighlightedRows((prev) => {
+              const next = new Set(prev);
+              next.delete(newLead.id);
+              return next;
+            });
+          }, 3000);
+
+          playChime();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "leads" },
+        (payload) => {
+          const updatedLead = payload.new as Lead;
+          setLeads((prev) => prev.map((l) => (l.id === updatedLead.id ? { ...l, viewed_at: updatedLead.viewed_at } : l)));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
+
+  useEffect(() => {
+    const handleFocus = async () => {
+      if (!leadsRef.current.length) return;
+      const maxCreated = leadsRef.current.reduce(
+        (max, l) => (new Date(l.created_at) > new Date(max) ? l.created_at : max),
+        leadsRef.current[0]!.created_at
+      );
+
+      const { data } = await supabase
+        .from("leads")
+        .select("*")
+        .gt("created_at", maxCreated)
+        .order("source_submitted_at", { ascending: false });
+
+      if (data && data.length > 0) {
+        const newLeads = data as Lead[];
+
+        setLeads((prev) => {
+          const combined = [...newLeads, ...prev];
+          const unique = combined.filter((v, i, a) => a.findIndex((t) => t.id === v.id) === i);
+          return unique.sort(
+            (a, b) => new Date(b.source_submitted_at).getTime() - new Date(a.source_submitted_at).getTime()
+          );
+        });
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    const handleVis = () => {
+      if (document.visibilityState === "visible") handleFocus();
+    };
+    document.addEventListener("visibilitychange", handleVis);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVis);
+    };
+  }, [supabase]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [search, setSearch] = useState("");
   const [source, setSource] = useState<LeadSource | "all">("all");
@@ -126,6 +264,16 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
   const totalCount = filtered.length;
   const newCount = filtered.filter((l) => !l.viewed_at).length;
   const viewedCount = totalCount - newCount;
+
+  // Daily intake metrics (Today in IST)
+  const todayStartMs = new Date(istDaysAgoStartUtc(0)).getTime();
+  const todayLeads = (source === "all" ? leads : leads.filter((l) => l.source === source)).filter(
+    (l) => new Date(l.source_submitted_at).getTime() >= todayStartMs,
+  );
+  const todayTotalCount = todayLeads.length;
+  const todayNewCount = todayLeads.filter((l) => !l.viewed_at).length;
+  const todayViewedCount = todayTotalCount - todayNewCount;
+
   const googleCount = filtered.filter((l) => l.source === "google_ads").length;
   const metaCount = filtered.filter((l) => l.source === "meta_ads").length;
   const acresCount = filtered.filter((l) => l.source === "99acres").length;
@@ -290,8 +438,8 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
             <svg className="w-5 h-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
           </div>
           <div>
-            <div className="text-xl font-bold text-ink">{totalCount}</div>
-            <div className="text-xs text-subtle font-medium mt-0.5">Total Leads</div>
+            <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayTotalCount}</div>
+            <div className="text-xs text-subtle font-medium mt-0.5">Total Leads (Today)</div>
           </div>
         </div>
 
@@ -300,8 +448,8 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
           </div>
           <div>
-            <div className="text-xl font-bold text-ink">{newCount}</div>
-            <div className="text-xs text-subtle font-medium mt-0.5">New Leads</div>
+            <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayNewCount}</div>
+            <div className="text-xs text-subtle font-medium mt-0.5">New Leads (Today)</div>
           </div>
         </div>
 
@@ -310,8 +458,8 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
             <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
           </div>
           <div>
-            <div className="text-xl font-bold text-ink">{viewedCount}</div>
-            <div className="text-xs text-subtle font-medium mt-0.5">Viewed Leads</div>
+            <div className="text-xl font-bold text-ink" suppressHydrationWarning>{todayViewedCount}</div>
+            <div className="text-xs text-subtle font-medium mt-0.5">Viewed Leads (Today)</div>
           </div>
         </div>
       </div>
@@ -329,6 +477,7 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
           onSort={toggleSort}
           onSelectLead={setSelectedLead}
           onToggleViewed={handleToggleViewed}
+          highlightedRows={highlightedRows}
         />
       )}
 
@@ -359,6 +508,7 @@ function LeadsTable({
   onSort,
   onSelectLead,
   onToggleViewed,
+  highlightedRows,
 }: {
   leads: Lead[];
   selectedLeadId?: string;
@@ -367,6 +517,7 @@ function LeadsTable({
   onSort: (key: SortKey) => void;
   onSelectLead: (lead: Lead) => void;
   onToggleViewed: (lead: Lead) => void;
+  highlightedRows: Set<string>;
 }) {
   function sortIndicator(key: SortKey) {
     if (sortKey !== key) return null;
@@ -386,7 +537,6 @@ function LeadsTable({
             <Th>Campaign</Th>
             <Th>Ad Group</Th>
             <Th>Status</Th>
-            <Th className="w-[40px]"></Th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -400,9 +550,11 @@ function LeadsTable({
               <tr
                 key={lead.id}
                 onClick={() => onSelectLead(lead)}
-                className={`transition-colors cursor-pointer select-none ${
+                className={`transition-colors duration-1000 cursor-pointer select-none ${
                   isSelected
                     ? "bg-accent-soft/60 hover:bg-accent-soft/80"
+                    : highlightedRows.has(lead.id)
+                    ? "bg-emerald-500/10 hover:bg-emerald-500/20"
                     : "hover:bg-canvas/80 bg-panel"
                 }`}
               >
@@ -421,14 +573,19 @@ function LeadsTable({
                         aria-hidden
                       />
                     )}
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-semibold text-ink">
-                        {new Date(lead.source_submitted_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ','}
-                      </span>
-                      <span className="text-xs text-subtle">
-                        {new Date(lead.source_submitted_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()}
-                      </span>
-                    </div>
+                    {(() => {
+                      const { dateStr, timeStr } = formatLeadDateTime(lead.source_submitted_at);
+                      return (
+                        <div className="flex flex-col gap-0.5" suppressHydrationWarning>
+                          <span className="font-semibold text-ink" suppressHydrationWarning>
+                            {dateStr}
+                          </span>
+                          <span className="text-xs text-subtle" suppressHydrationWarning>
+                            {timeStr}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </Td>
 
@@ -511,13 +668,6 @@ function LeadsTable({
                     {isNew ? "Mark viewed" : "Mark unread"}
                   </button>
                 </Td>
-
-                {/* Menu */}
-                <Td className="w-[40px] px-2 text-right">
-                  <button className="p-1.5 text-subtle hover:bg-canvas rounded transition-colors" onClick={(e) => e.stopPropagation()}>
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-                  </button>
-                </Td>
               </tr>
             );
           })}
@@ -589,9 +739,32 @@ function FiltersBar(props: {
           <circle cx="11" cy="11" r="8" />
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
-        <div className="absolute right-4 top-3.5 text-[11px] font-medium text-subtle border border-line rounded px-1.5 py-0.5 bg-canvas pointer-events-none">
-          ⌘ K
-        </div>
+        {props.search ? (
+          <button
+            type="button"
+            onClick={() => props.onSearch("")}
+            className="absolute right-3.5 top-3 p-1 rounded-md text-subtle hover:text-ink hover:bg-canvas transition-colors cursor-pointer"
+            title="Clear search"
+            aria-label="Clear search"
+          >
+            <svg
+              className="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        ) : (
+          <div className="absolute right-4 top-3.5 text-[11px] font-medium text-subtle border border-line rounded px-1.5 py-0.5 bg-canvas pointer-events-none">
+            ⌘ K
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -678,12 +851,6 @@ function FiltersBar(props: {
             }}
           >
             Reset
-          </button>
-          <button
-            type="button"
-            className="px-4 py-2 bg-accent hover:bg-[#1a3d33] text-white text-sm font-medium rounded-lg shadow-2xs transition-colors"
-          >
-            Apply Filters
           </button>
         </div>
       </div>
