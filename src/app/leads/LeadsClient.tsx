@@ -319,11 +319,8 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
   // Daily intake metrics (Today in 7 PM - 7 PM IST Business Day window)
   // Dynamic KPI metrics matching the active date window
   const dateLabel = getDatePresetLabel(datePreset, customFrom, customTo);
-  const kpiLeads = (source === "all" ? leads : leads.filter((l) => l.source === source)).filter((l) =>
-    matchesDatePreset(l.source_submitted_at, datePreset, customFrom, customTo)
-  );
-  const kpiTotal = kpiLeads.length;
-  const kpiNew = kpiLeads.filter((l) => !l.viewed_at).length;
+  const kpiTotal = filtered.length;
+  const kpiNew = filtered.filter((l) => !l.viewed_at).length;
   const kpiViewed = kpiTotal - kpiNew;
 
   const googleCount = filtered.filter((l) => l.source === "google_ads").length;
