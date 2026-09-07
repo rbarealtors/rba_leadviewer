@@ -3,6 +3,7 @@ import { AppHeader } from "@/app/AppHeader";
 import { isAdmin } from "@/lib/auth/authorization";
 import { redirect } from "next/navigation";
 import { CampaignMappingsClient } from "./CampaignMappingsClient";
+import defaultMappings from "@/lib/leads/google-ads-map.json";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,12 @@ export default async function CampaignMappingsPage() {
 
   const mappedIds = new Set(mappings?.map((m) => String(m.id).trim()) || []);
   const unmapped = new Map<string, { id: string; type: "campaign" | "adgroup" | "property" }>();
+  
+  const defaultLinks: Record<string, string[]> = (defaultMappings as any).campaignToAdGroups || {};
   const campaignToAdGroups: Record<string, string[]> = {};
+  for (const [cId, agList] of Object.entries(defaultLinks)) {
+    campaignToAdGroups[cId] = [...agList];
+  }
 
   // 2. Scan recent Google Ads leads for unmapped IDs
   const { data: recentGoogleLeads } = await supabase
