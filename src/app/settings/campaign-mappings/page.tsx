@@ -23,6 +23,7 @@ export default async function CampaignMappingsPage() {
 
   const mappedIds = new Set(mappings?.map((m) => String(m.id).trim()) || []);
   const unmapped = new Map<string, { id: string; type: "campaign" | "adgroup" | "property" }>();
+  const campaignToAdGroups: Record<string, string[]> = {};
 
   // 2. Scan recent Google Ads leads for unmapped IDs
   const { data: recentGoogleLeads } = await supabase
@@ -48,10 +49,42 @@ export default async function CampaignMappingsPage() {
       if (adId && /^\d+$/.test(adId) && !mappedIds.has(adId)) {
         unmapped.set(adId, { id: adId, type: "adgroup" });
       }
+      if (campId && adId) {
+        if (!campaignToAdGroups[campId]) campaignToAdGroups[campId] = [];
+        if (!campaignToAdGroups[campId].includes(adId)) {
+          campaignToAdGroups[campId].push(adId);
+        }
+      }
     }
   }
 
   // 3. Scan recent portal leads for unmapped Property IDs
+  // 3. Scan recent Meta leads for campaign-adset links
+  const { data: recentMetaLeads } = await supabase
+    .from("leads")
+    .select("campaign_name, ad_group_name, raw_payload")
+    .eq("source", "meta_ads")
+    .order("source_submitted_at", { ascending: false })
+    .limit(500);
+
+  if (recentMetaLeads) {
+    for (const lead of recentMetaLeads) {
+      const payload = (lead.raw_payload as Record<string, unknown>) || {};
+      const rawCampId = payload.campaign_id != null ? String(payload.campaign_id).trim() : null;
+      const campId = rawCampId || lead.campaign_name;
+      const rawAdGroupId = payload.adset_id != null ? String(payload.adset_id).trim() : null;
+      const adId = rawAdGroupId || lead.ad_group_name;
+
+      if (campId && adId) {
+        if (!campaignToAdGroups[campId]) campaignToAdGroups[campId] = [];
+        if (!campaignToAdGroups[campId].includes(adId)) {
+          campaignToAdGroups[campId].push(adId);
+        }
+      }
+    }
+  }
+
+  // 4. Scan recent portal leads for unmapped Property IDs
   const { data: portalLeads } = await supabase
     .from("leads")
     .select("source, ad_name, raw_payload")
@@ -86,6 +119,7 @@ export default async function CampaignMappingsPage() {
         <CampaignMappingsClient 
           initialMappings={mappings || []} 
           unmappedIds={Array.from(unmapped.values())} 
+          campaignToAdGroups={campaignToAdGroups}
         />
       </main>
     </div>

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
+import { CopyButton } from "@/app/components/CopyButton";
 
 type Mapping = {
   id: string;
@@ -18,19 +20,26 @@ type UnmappedInfo = {
 export function CampaignMappingsClient({
   initialMappings,
   unmappedIds,
+  campaignToAdGroups = {},
 }: {
   initialMappings: Mapping[];
   unmappedIds: UnmappedInfo[];
+  campaignToAdGroups?: Record<string, string[]>;
 }) {
   const router = useRouter();
   const [mappings, setMappings] = useState<Mapping[]>(initialMappings);
   const [saving, setSaving] = useState(false);
   
+
   const [form, setForm] = useState({
     type: "campaign" as "campaign" | "adgroup" | "property",
     id: "",
     display_name: "",
   });
+
+  const [propertySearch, setPropertySearch] = useState("");
+  const [propertyPageSize, setPropertyPageSize] = useState(10);
+  const [propertyCurrentPage, setPropertyCurrentPage] = useState(1);
 
   const campaigns = mappings.filter((m) => m.type === "campaign");
   const adgroups = mappings.filter((m) => m.type === "adgroup");
@@ -69,6 +78,7 @@ export function CampaignMappingsClient({
     e.preventDefault();
     if (!form.id || !form.display_name) return;
     
+
     setSaving(true);
     try {
       const res = await fetch("/api/settings/campaign-mappings", {
@@ -77,10 +87,12 @@ export function CampaignMappingsClient({
         body: JSON.stringify(form),
       });
       
+
       if (!res.ok) {
         throw new Error("Failed to save mapping");
       }
       
+
       // Reset form on success
       setForm({ type: "campaign", id: "", display_name: "" });
       router.refresh(); // Refresh page to get latest data
@@ -101,6 +113,11 @@ export function CampaignMappingsClient({
     }
   }
 
+  function handleEdit(item: { id: string; type: "campaign" | "adgroup" | "property"; display_name: string }) {
+    setForm(item);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function handleMapUnmapped(unmapped: UnmappedInfo) {
     setForm({
       type: unmapped.type,
@@ -113,6 +130,9 @@ export function CampaignMappingsClient({
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString("en-US", {
       month: "short", day: "numeric", year: "numeric"
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   }
 
@@ -186,10 +206,14 @@ export function CampaignMappingsClient({
             {unmappedIds.map((u) => (
               <div key={u.id} className="flex items-center gap-2 bg-white border border-amber-200 rounded-md px-3 py-1.5 shadow-sm text-sm">
                 <span className="font-mono text-amber-900">{u.id}</span>
+              <div key={u.id} className="flex items-center gap-1.5 bg-white border border-amber-200 rounded-md px-3 py-1.5 shadow-sm text-sm">
+                <span className="font-mono text-amber-900 font-semibold">{u.id}</span>
+                <CopyButton text={u.id} title="Copy ID" />
                 <span className="text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded uppercase font-medium">{u.type}</span>
                 <button
                   onClick={() => handleMapUnmapped(u)}
                   className="ml-2 text-xs font-semibold text-accent hover:underline"
+                  className="ml-2 text-xs font-semibold text-accent hover:underline cursor-pointer"
                 >
                   Map Name &rarr;
                 </button>
@@ -204,6 +228,15 @@ export function CampaignMappingsClient({
         <MappingTable title="Campaigns (Google Ads)" items={campaigns} onDelete={handleDelete} onEdit={handleEdit} formatDate={formatDate} />
         <MappingTable title="Ad Groups (Google / Meta)" items={adgroups} onDelete={handleDelete} onEdit={handleEdit} formatDate={formatDate} />
       </div>
+      {/* Campaigns & Ad Groups (Hierarchical Table: Ad Groups as Child Component of Campaign Name) */}
+      <CampaignsAndAdGroupsTable
+        campaigns={campaigns}
+        adgroups={adgroups}
+        campaignToAdGroups={campaignToAdGroups}
+        onDelete={handleDelete}
+        onEdit={handleEdit}
+        formatDate={formatDate}
+      />
 
       {/* Property IDs (Portals) - Leads Dashboard-Style Table View */}
       <div className="bg-panel border border-line rounded-xl shadow-sm overflow-hidden flex flex-col">
@@ -313,6 +346,12 @@ export function CampaignMappingsClient({
                       <span className="font-mono text-xs font-semibold px-2 py-1 rounded bg-canvas border border-line text-ink">
                         {item.id}
                       </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-xs font-semibold px-2 py-1 rounded bg-canvas border border-line text-ink">
+                          {item.id}
+                        </span>
+                        <CopyButton text={item.id} title="Copy Property ID" />
+                      </div>
                     </td>
                     <td className="px-5 py-3 text-sm font-medium text-ink">
                       {item.display_name}
@@ -417,32 +456,79 @@ export function CampaignMappingsClient({
 function MappingTable({
   title,
   items,
+function CampaignsAndAdGroupsTable({
+  campaigns,
+  adgroups,
+  campaignToAdGroups,
   onDelete,
   onEdit,
   formatDate
+  formatDate,
 }: {
   title: string;
   items: Mapping[];
+  campaigns: Mapping[];
+  adgroups: Mapping[];
+  campaignToAdGroups: Record<string, string[]>;
   onDelete: (id: string) => void;
   onEdit: (mapping: { id: string; type: "campaign" | "adgroup" | "property"; display_name: string }) => void;
   formatDate: (iso: string) => string;
 }) {
+  // Collect all ad group IDs that are assigned to any campaign
+  const assignedAdGroupIds = new Set<string>();
+  Object.values(campaignToAdGroups).forEach((ids) => {
+    ids.forEach((id) => assignedAdGroupIds.add(id));
+  });
+
+  const standaloneAdGroups = adgroups.filter((ag) => !assignedAdGroupIds.has(ag.id));
+
   return (
     <div className="bg-panel border border-line rounded-xl shadow-sm overflow-hidden flex flex-col">
       <div className="px-5 py-4 border-b border-line bg-canvas">
         <h3 className="font-bold text-ink">{title}</h3>
+      <div className="p-5 border-b border-line bg-canvas flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-ink text-base">Campaigns &amp; Ad Groups (Google Ads / Meta)</h3>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-panel border border-line text-subtle">
+              {campaigns.length} campaigns, {adgroups.length} ad groups
+            </span>
+          </div>
+          <p className="text-xs text-subtle mt-0.5">
+            Ad Groups are organized hierarchically as child components of their parent Campaign.
+          </p>
+        </div>
       </div>
+
       <div className="flex-1 overflow-auto">
         {items.length === 0 ? (
           <div className="p-8 text-center text-subtle text-sm">No mappings found.</div>
+        {campaigns.length === 0 && adgroups.length === 0 ? (
+          <div className="p-8 text-center text-subtle text-sm">No campaign or ad group mappings found.</div>
         ) : (
           <table className="w-full">
+          <table className="w-full text-left border-collapse">
             <thead className="bg-canvas border-b border-line sticky top-0">
               <tr>
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-subtle uppercase tracking-wider">ID</th>
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-subtle uppercase tracking-wider">Name</th>
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-subtle uppercase tracking-wider">Updated</th>
                 <th className="px-4 py-2.5 text-right text-xs font-semibold text-subtle uppercase tracking-wider"></th>
+                <th className="px-5 py-3 text-xs font-semibold text-subtle uppercase tracking-wider w-[240px]">
+                  ID
+                </th>
+                <th className="px-5 py-3 text-xs font-semibold text-subtle uppercase tracking-wider">
+                  Campaign / Ad Group Name
+                </th>
+                <th className="px-5 py-3 text-xs font-semibold text-subtle uppercase tracking-wider w-[120px]">
+                  Type
+                </th>
+                <th className="px-5 py-3 text-xs font-semibold text-subtle uppercase tracking-wider w-[140px]">
+                  Last Updated
+                </th>
+                <th className="px-5 py-3 text-right text-xs font-semibold text-subtle uppercase tracking-wider w-[100px]">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line bg-panel">
@@ -463,6 +549,158 @@ function MappingTable({
                   </td>
                 </tr>
               ))}
+              {campaigns.map((camp) => {
+                const childIds = campaignToAdGroups[camp.id] || [];
+                const childAdGroups = adgroups.filter((ag) => childIds.includes(ag.id));
+
+                return (
+                  <Fragment key={camp.id}>
+                    {/* Parent Campaign Row */}
+                    <tr className="bg-canvas/20 hover:bg-canvas/50 transition-colors group">
+                      <td className="px-5 py-3 text-sm">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-panel border border-line text-ink">
+                            {camp.id}
+                          </span>
+                          <CopyButton text={camp.id} title="Copy Campaign ID" />
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 text-sm font-semibold text-ink">
+                        <div className="flex items-center gap-2">
+                          <span>{camp.display_name}</span>
+                          {childAdGroups.length > 0 && (
+                            <span className="text-xs text-subtle font-normal">
+                              ({childAdGroups.length} {childAdGroups.length === 1 ? "ad group" : "ad groups"})
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 text-xs">
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                          Campaign
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-xs text-subtle">
+                        {formatDate(camp.updated_at)}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => onEdit(camp)}
+                            className="p-1.5 text-subtle hover:text-accent rounded hover:bg-canvas transition-colors"
+                            title="Edit Campaign"
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                          </button>
+                          <button
+                            onClick={() => onDelete(camp.id)}
+                            className="p-1.5 text-subtle hover:text-red-600 rounded hover:bg-canvas transition-colors"
+                            title="Delete Campaign"
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Child Ad Group Rows (Rendered as child component of Campaign) */}
+                    {childAdGroups.map((ag) => (
+                      <tr key={ag.id} className="hover:bg-canvas/40 transition-colors group bg-panel/70">
+                        <td className="px-5 py-2 text-sm pl-11">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-subtle/50 font-mono text-xs mr-0.5">↳</span>
+                            <span className="font-mono text-xs px-2 py-0.5 rounded bg-canvas border border-line text-subtle font-medium">
+                              {ag.id}
+                            </span>
+                            <CopyButton text={ag.id} title="Copy Ad Group ID" />
+                          </div>
+                        </td>
+                        <td className="px-5 py-2 text-sm pl-8">
+                          <span className="text-ink font-medium text-xs">{ag.display_name}</span>
+                        </td>
+                        <td className="px-5 py-2 text-xs">
+                          <span className="text-[10px] uppercase font-medium tracking-wider px-1.5 py-0.5 rounded bg-canvas text-subtle border border-line">
+                            Ad Group
+                          </span>
+                        </td>
+                        <td className="px-5 py-2 text-xs text-subtle">
+                          {formatDate(ag.updated_at)}
+                        </td>
+                        <td className="px-5 py-2 text-right">
+                          <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => onEdit(ag)}
+                              className="p-1.5 text-subtle hover:text-accent rounded hover:bg-canvas transition-colors"
+                              title="Edit Ad Group"
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                            </button>
+                            <button
+                              onClick={() => onDelete(ag.id)}
+                              className="p-1.5 text-subtle hover:text-red-600 rounded hover:bg-canvas transition-colors"
+                              title="Delete Ad Group"
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
+                );
+              })}
+
+              {/* Standalone / Unassigned Ad Groups */}
+              {standaloneAdGroups.length > 0 && (
+                <>
+                  <tr className="bg-canvas/50 border-t-2 border-line">
+                    <td colSpan={5} className="px-5 py-2.5 text-xs font-bold text-subtle uppercase tracking-wider">
+                      Standalone / Other Ad Groups ({standaloneAdGroups.length})
+                    </td>
+                  </tr>
+                  {standaloneAdGroups.map((ag) => (
+                    <tr key={ag.id} className="hover:bg-canvas/50 transition-colors group bg-panel">
+                      <td className="px-5 py-2.5 text-sm">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-xs px-2 py-0.5 rounded bg-canvas border border-line text-ink font-medium">
+                            {ag.id}
+                          </span>
+                          <CopyButton text={ag.id} title="Copy Ad Group ID" />
+                        </div>
+                      </td>
+                      <td className="px-5 py-2.5 text-sm">
+                        <span className="text-ink font-medium text-xs">{ag.display_name}</span>
+                      </td>
+                      <td className="px-5 py-2.5 text-xs">
+                        <span className="text-[10px] uppercase font-medium tracking-wider px-1.5 py-0.5 rounded bg-canvas text-subtle border border-line">
+                          Ad Group
+                        </span>
+                      </td>
+                      <td className="px-5 py-2.5 text-xs text-subtle">
+                        {formatDate(ag.updated_at)}
+                      </td>
+                      <td className="px-5 py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => onEdit(ag)}
+                            className="p-1.5 text-subtle hover:text-accent rounded hover:bg-canvas transition-colors"
+                            title="Edit Ad Group"
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                          </button>
+                          <button
+                            onClick={() => onDelete(ag.id)}
+                            className="p-1.5 text-subtle hover:text-red-600 rounded hover:bg-canvas transition-colors"
+                            title="Delete Ad Group"
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </>
+              )}
             </tbody>
           </table>
         )}

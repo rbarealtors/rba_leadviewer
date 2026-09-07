@@ -811,13 +811,22 @@ function LeadsTable({
                 </Td>
 
                 {/* Campaign */}
+                {/* Campaign with Ad Group as child component */}
                 <Td title={lead.campaign_name || undefined}>
                   <div className="flex flex-col gap-1 max-w-[200px]">
+                  <div className="flex flex-col gap-0.5 max-w-[220px]">
                     <span className="font-medium text-ink truncate">
                       {campaign.title}
                     </span>
+                    {lead.ad_group_name && lead.ad_group_name.trim() !== "" && lead.ad_group_name !== "—" && (
+                      <div className="flex items-center gap-1 text-xs text-subtle truncate" title={`Ad Group: ${lead.ad_group_name}`}>
+                        <span className="text-subtle/50 font-mono text-[11px]">↳</span>
+                        <span className="truncate">{lead.ad_group_name}</span>
+                      </div>
+                    )}
                     {campaign.badges.length > 0 && (
                       <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1 mt-0.5">
                         {campaign.badges.map((b) => (
                           <span
                             key={b}

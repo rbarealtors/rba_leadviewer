@@ -5,6 +5,7 @@ import type { Lead } from "@/lib/leads/types";
 import { formatIST } from "@/lib/time";
 import { formatCampaignName, sanitizePhoneForCopy, buildWhatsAppUrl } from "@/lib/leads/formatters";
 import { SourceBadge } from "./SourceBadge";
+import { CopyButton } from "@/app/components/CopyButton";
 
 export function LeadDetailDrawer({
   lead,
@@ -307,8 +308,14 @@ export function LeadDetailDrawer({
 
               <div className="flex items-start justify-between gap-4">
                 <span className="text-xs text-subtle">Campaign Name</span>
+                <span className="text-xs text-subtle">Campaign</span>
                 <div className="text-right">
                   <span className="font-semibold text-ink block">{campaign.title}</span>
+                  {lead.ad_group_name && lead.ad_group_name !== "—" && (
+                    <span className="text-xs text-subtle block mt-0.5">
+                      ↳ Ad Group: <span className="font-medium text-ink">{lead.ad_group_name}</span>
+                    </span>
+                  )}
                   {campaign.badges.length > 0 && (
                     <div className="flex flex-wrap justify-end gap-1 mt-1">
                       {campaign.badges.map((badge) => (
@@ -350,6 +357,12 @@ export function LeadDetailDrawer({
                 <span className="text-xs font-mono text-subtle text-right break-all">
                   {lead.external_lead_id}
                 </span>
+                <div className="flex items-center gap-1.5 text-right">
+                  <span className="text-xs font-mono text-subtle break-all">
+                    {lead.external_lead_id || lead.id}
+                  </span>
+                  <CopyButton text={lead.external_lead_id || lead.id} title="Copy Lead ID" />
+                </div>
               </div>
             </div>
           </section>
