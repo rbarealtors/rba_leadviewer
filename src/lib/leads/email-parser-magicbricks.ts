@@ -110,34 +110,62 @@ function extractPropertyId(text: string, subject?: string): string | null {
 }
 
 function extractCampaignName(text: string, subject?: string): string | null {
+  // 1. Check if subject has explicit "for sale in <Project/Location>"
+  // e.g. "Buyer has contacted you on Magicbricks for - 3 BHK Multistorey Apartment for sale in Shyam Kunj"
+  if (subject) {
+    const saleInMatch = subject.match(/for sale in\s+([^\r\n]+)/i);
+    if (saleInMatch && saleInMatch[1]) {
+      const cleaned = cleanProperty(saleInMatch[1]);
+      if (cleaned && !isGenericPropertyDescriptor(cleaned)) return cleaned;
+    }
+  }
+
+  // 2. Try body text pattern: "interested in your Property, ID ...: <Name>"
   const propMatch = text.match(/interested in your Property(?:,)?\s*ID\s*\d+\s*:\s*([^\n\r]+)/i);
   if (propMatch && propMatch[1]) {
     const cleaned = cleanProperty(propMatch[1]);
-    if (cleaned) return cleaned;
+    if (cleaned && !isGenericPropertyDescriptor(cleaned)) return cleaned;
   }
+
+  // 3. Try labeled project / property name
   const propDescMatch = text.match(/(?:Property Description|Property Name|Project Name)\s*:\s*([^\n\r]+)/i);
   if (propDescMatch && propDescMatch[1]) {
     const cleaned = cleanProperty(propDescMatch[1]);
-    if (cleaned) return cleaned;
+    if (cleaned && !isGenericPropertyDescriptor(cleaned)) return cleaned;
   }
+
+  // 4. Subject line dashes fallback
   if (subject) {
     const forDashMatch = subject.match(/for\s*[-–]\s*([^\n\r]+)/i);
     if (forDashMatch && forDashMatch[1]) {
       const cleaned = cleanProperty(forDashMatch[1]);
-      if (cleaned) return cleaned;
+      if (cleaned && !isGenericPropertyDescriptor(cleaned)) return cleaned;
     }
     const dashMatch = subject.match(/[-–]\s*([^\n\r]+)/);
     if (dashMatch && dashMatch[1]) {
       const cleaned = cleanProperty(dashMatch[1]);
-      if (cleaned) return cleaned;
+      if (cleaned && !isGenericPropertyDescriptor(cleaned)) return cleaned;
     }
   }
+
+  // 5. Body phrase fallback
   const typeMatch = text.match(/\b((?:\d+\s*BHK\s+)?(?:Flat|Apartment|Villa|Plot|House|Builder Floor|Commercial)\s+in\s+[^\r\n,]+)/i);
   if (typeMatch && typeMatch[1]) {
     const cleaned = cleanProperty(typeMatch[1]);
     if (cleaned) return cleaned;
   }
+
+  // If we had a generic match from propMatch, return it as last resort
+  if (propMatch && propMatch[1]) {
+    const cleaned = cleanProperty(propMatch[1]);
+    if (cleaned) return cleaned;
+  }
+
   return null;
+}
+
+function isGenericPropertyDescriptor(str: string): boolean {
+  return /^\s*(\d+\s*BHK)?\s*,?\s*(Multistorey|Apartment|Flat)?\s*$/i.test(str.trim());
 }
 
 function cleanProperty(raw: string): string | null {

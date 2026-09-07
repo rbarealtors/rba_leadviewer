@@ -125,5 +125,55 @@ Pooja Sen
     expect(res.campaign_name).toBeNull();
     expect(res.external_lead_id).toBeTruthy();
   });
+
+  it("extracts clean property title from subject line without slicing noisy body text", () => {
+    const body = `
+Property Advertisement Response 
+Dear Rakesh Garg 
+This buyer is looking for 2 BHK Flat in Champasari for Rs44 Lac on 
+99acres.com 
+Details of the response 
+Ayush Banik 
+
++91-9330546785 *(Verified)* 
+`;
+    const subject = "Advertisement Response for Rs44 Lac, 2 BHK Flat in NS Alti Level Champasari";
+    const res = parse99AcresEmail(body, subject);
+
+    expect(res.full_name).toBe("Ayush Banik");
+    expect(res.phone_number).toBe("+919330546785");
+    expect(res.property_id).toBeNull();
+    // Must extract "NS Alti Level Champasari" from subject, NOT "Flat in Champasari for Rs44 Lac on" from body
+    expect(res.campaign_name).toBe("NS Alti Level Champasari");
+    expect(res.bhk_configuration).toBe("2 BHK");
+  });
+
+  it("extracts clean property title from 'Buyer wants to know' subject line", () => {
+    const body = `
+Property Advertisement Query
+Dear Rakesh Garg
+Details of the Query
+Kamal Roy
++91-6294852484
+`;
+    const subject = "Buyer wants to know about your Rs57.71 Lac, 3 BHK Flat in Ashiyana Heights Matigara";
+    const res = parse99AcresEmail(body, subject);
+
+    expect(res.campaign_name).toBe("Ashiyana Heights Matigara");
+    expect(res.bhk_configuration).toBe("3 BHK");
+  });
+
+  it("extracts clean property title from dashed subject line", () => {
+    const body = `
+Property Advertisement Response
+Details of the response
+Dinesh
++91-9093059992
+`;
+    const subject = "Property Advertisement Response - Green Retreat";
+    const res = parse99AcresEmail(body, subject);
+
+    expect(res.campaign_name).toBe("Green Retreat");
+  });
 });
 

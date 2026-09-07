@@ -165,13 +165,10 @@ function extractEmail(text: string): string | null {
  * Extracts Property Name / Title for campaign_name.
  */
 function extractProperty(text: string, subject?: string): string | null {
-  // 1. Check subject if it has "Property Id ... - <Property Name>"
+  // 1. Check subject line first to get the clean property title (avoids slicing noisy body text)
   if (subject) {
-    const dashMatch = subject.match(/(?:Property\s*Id[:\s]*[A-Za-z0-9]+)?\s*[-–]\s*([^\r\n]+)/i);
-    if (dashMatch && dashMatch[1]) {
-      const cleaned = cleanPropertyStr(dashMatch[1]);
-      if (cleaned && !/^(Property|Details|Query|Id:)/i.test(cleaned)) return cleaned;
-    }
+    const fromSubject = extractPropertyFromSubject(subject);
+    if (fromSubject) return fromSubject;
   }
 
   // 2. Look for lines under "Property Details" section in body
@@ -206,24 +203,61 @@ function extractProperty(text: string, subject?: string): string | null {
     /\b((?:Flat|Apartment|Villa|Plot|Commercial|House|Builder Floor|Residential Land)\s+in\s+[^\r\n,]+)/i
   );
   if (typeMatch && typeMatch[1]) {
-    const cleaned = cleanPropertyStr(typeMatch[1]);
+    const cleaned = cleanPropertyStr(
+      typeMatch[1].replace(/\s+for\s+(?:Rs\.?|₹|INR|\d).*$/i, "").replace(/\s+on\s*$/i, "")
+    );
     if (cleaned) return cleaned;
   }
 
-  // 5. Fallback: Parse from subject line
+  // 5. Fallback: Check parentheses in subject
   if (subject) {
     const parenMatch = subject.match(/\(([^)]+)\)/);
     if (parenMatch && parenMatch[1]) {
       const cleaned = cleanPropertyStr(parenMatch[1]);
       if (cleaned && !/^[A-Z]\d+$/i.test(cleaned)) return cleaned;
     }
+  }
 
-    const subTypeMatch = subject.match(
-      /\b((?:Flat|Apartment|Villa|Plot|House|Builder Floor)\s+in\s+[^\r\n,]+)/i
-    );
-    if (subTypeMatch && subTypeMatch[1]) {
-      const cleaned = cleanPropertyStr(subTypeMatch[1]);
-      if (cleaned) return cleaned;
+  return null;
+}
+
+/**
+ * Extracts property title directly from email subject line.
+ */
+export function extractPropertyFromSubject(subject?: string): string | null {
+  if (!subject) return null;
+  const s = subject.trim();
+
+  // Pattern 1: Explicit dash separating property title or after Property Id
+  // e.g. "Query for your Property Id W79666903 - Flat in Anandville Darjeeling More"
+  // e.g. "Property Advertisement Response - Green Retreat"
+  const dashMatch = s.match(/(?:Property\s*Id[:\s]*[A-Za-z0-9]+)?\s*[-–]\s*([^\r\n]+)/i);
+  if (dashMatch && dashMatch[1]) {
+    const candidate = dashMatch[1].trim();
+    if (!/^(Property|Details|Query|Response|Id:)/i.test(candidate)) {
+      return cleanPropertyStr(candidate);
+    }
+  }
+
+  // Pattern 2: "... Flat/Apartment/Villa/Plot/House in <Property Name>"
+  // e.g. "Advertisement Response for Rs44 Lac, 2 BHK Flat in NS Alti Level Champasari"
+  // e.g. "Buyer wants to know about your Rs57.71 Lac, 3 BHK Flat in Ashiyana Heights Matigara"
+  const inMatch = s.match(
+    /\b(?:Flat|Apartment|Villa|Plot|House|Builder Floor|Residential Land|Land)\s+in\s+([^,\r\n]+(?:,[^,\r\n]+)?)/i
+  );
+  if (inMatch && inMatch[1]) {
+    const candidate = inMatch[1].trim();
+    if (!/^(details|query|response)/i.test(candidate)) {
+      return cleanPropertyStr(candidate);
+    }
+  }
+
+  // Pattern 3: "Advertisement Response for <Property Name>" (where property name doesn't start with price or digits)
+  const forMatch = s.match(/Advertisement Response for\s+(?!Rs\.?|₹|INR|\d)(.+)$/i);
+  if (forMatch && forMatch[1]) {
+    const candidate = forMatch[1].trim();
+    if (candidate) {
+      return cleanPropertyStr(candidate);
     }
   }
 
@@ -233,6 +267,8 @@ function extractProperty(text: string, subject?: string): string | null {
 function cleanPropertyStr(raw: string): string | null {
   const cleaned = raw
     .replace(/^(Property Details|Details of the Property|Query for)\s*[:\-]?\s*/i, "")
+    .replace(/\s+for\s+(?:Rs\.?|₹|INR|\d).*$/i, "")
+    .replace(/\s+on\s*$/i, "")
     .replace(/[\s\-|]+$/, "")
     .trim();
   return cleaned.length > 0 ? cleaned : null;

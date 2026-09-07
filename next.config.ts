@@ -9,8 +9,13 @@ const nextConfig: NextConfig = {
 
 export default nextConfig;
 
-// Enables `getCloudflareContext` during `next dev` for local binding access.
-// Safe to import even outside a Cloudflare build.
-import("@opennextjs/cloudflare").then(({ initOpenNextCloudflareForDev }) => {
-  initOpenNextCloudflareForDev();
-});
+// Enables `getCloudflareContext` during `next dev` for local binding access if requested.
+if (process.env.CF_DEV) {
+  import("@opennextjs/cloudflare")
+    .then(({ initOpenNextCloudflareForDev }) => {
+      initOpenNextCloudflareForDev();
+    })
+    .catch((err) => {
+      console.warn("Could not initialize OpenNext Cloudflare dev bindings:", err);
+    });
+}

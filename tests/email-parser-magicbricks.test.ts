@@ -85,5 +85,24 @@ Mobile: 9811223344
     expect(res.campaign_name).toBeNull();
     expect(res.external_lead_id).toMatch(/^MB-prop-/);
   });
+
+  it("extracts project name from subject line when body only contains generic descriptor", () => {
+    const body = `
+A user is interested in your Property, ID 85772265: 3 BHK , Multistorey 
+Apartment in Matigara , Siliguri. 
+Details of Contact Made: 
+Sender's Name: Irfan (Individual) 
+Mobile: 6294517681 
+Email: irfan@gmail.com 
+`;
+    const subject = "Buyer has contacted you on Magicbricks for - 3 BHK Multistorey Apartment for sale in Shyam Kunj";
+    const res = parseMagicBricksEmail(body, subject);
+
+    expect(res.full_name).toBe("Irfan");
+    expect(res.phone_number).toBe("+916294517681");
+    expect(res.property_id).toBe("85772265");
+    // Should prefer the clean project name from the subject line over "3 BHK , Multistorey"
+    expect(res.campaign_name).toBe("Shyam Kunj");
+  });
 });
 

@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 
 type Mapping = {
   id: string;
-  type: "campaign" | "adgroup";
+  type: "campaign" | "adgroup" | "property";
   display_name: string;
   updated_at: string;
 };
 
 type UnmappedInfo = {
   id: string;
-  type: "campaign" | "adgroup";
+  type: "campaign" | "adgroup" | "property";
 };
 
 export function CampaignMappingsClient({
@@ -27,13 +27,14 @@ export function CampaignMappingsClient({
   const [saving, setSaving] = useState(false);
   
   const [form, setForm] = useState({
-    type: "campaign" as "campaign" | "adgroup",
+    type: "campaign" as "campaign" | "adgroup" | "property",
     id: "",
     display_name: "",
   });
 
   const campaigns = mappings.filter((m) => m.type === "campaign");
   const adgroups = mappings.filter((m) => m.type === "adgroup");
+  const properties = mappings.filter((m) => m.type === "property");
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -96,21 +97,29 @@ export function CampaignMappingsClient({
             <label className="block text-sm font-medium text-ink mb-1">Type</label>
             <select
               value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value as "campaign" | "adgroup" })}
+              onChange={(e) => setForm({ ...form, type: e.target.value as "campaign" | "adgroup" | "property" })}
               className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink outline-none focus:border-accent"
             >
-              <option value="campaign">Campaign</option>
+              <option value="campaign">Campaign (Google Ads)</option>
               <option value="adgroup">Ad Group / Ad Set</option>
+              <option value="property">Property ID (Magicbricks / 99acres)</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-ink mb-1">Numeric ID</label>
+            <label className="block text-sm font-medium text-ink mb-1">
+              {form.type === "property" ? "Property ID" : "Numeric ID"}
+            </label>
             <input
               type="text"
               required
-              placeholder="e.g. 23814107752"
+              placeholder={form.type === "property" ? "e.g. 70035213 or M92565256" : "e.g. 23814107752"}
               value={form.id}
-              onChange={(e) => setForm({ ...form, id: e.target.value.replace(/\\D/g, "") })}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  id: form.type === "property" ? e.target.value.trim() : e.target.value.replace(/\D/g, ""),
+                })
+              }
               className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink outline-none focus:border-accent"
             />
           </div>
@@ -119,7 +128,7 @@ export function CampaignMappingsClient({
             <input
               type="text"
               required
-              placeholder="e.g. Search - 2 BHK"
+              placeholder={form.type === "property" ? "e.g. Green Retreat" : "e.g. Search - 2 BHK"}
               value={form.display_name}
               onChange={(e) => setForm({ ...form, display_name: e.target.value })}
               className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink outline-none focus:border-accent"
@@ -142,7 +151,7 @@ export function CampaignMappingsClient({
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 shadow-sm">
           <h2 className="text-lg font-bold text-amber-900 mb-2">Unmapped IDs Detected</h2>
           <p className="text-sm text-amber-800 mb-4">
-            We found raw numeric IDs in recent Google Ads leads. Map them so they appear correctly in your dashboard.
+            We found unmapped IDs in recent leads. Map them so they appear correctly with human-readable names across your dashboard.
           </p>
           <div className="flex flex-wrap gap-3">
             {unmappedIds.map((u) => (
@@ -161,10 +170,11 @@ export function CampaignMappingsClient({
         </div>
       )}
 
-      {/* Existing Mappings Table */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <MappingTable title="Campaigns" items={campaigns} onDelete={handleDelete} onEdit={setForm} formatDate={formatDate} />
-        <MappingTable title="Ad Groups" items={adgroups} onDelete={handleDelete} onEdit={setForm} formatDate={formatDate} />
+      {/* Existing Mappings Tables */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <MappingTable title="Campaigns (Google Ads)" items={campaigns} onDelete={handleDelete} onEdit={setForm} formatDate={formatDate} />
+        <MappingTable title="Ad Groups (Google / Meta)" items={adgroups} onDelete={handleDelete} onEdit={setForm} formatDate={formatDate} />
+        <MappingTable title="Property IDs (Portals)" items={properties} onDelete={handleDelete} onEdit={setForm} formatDate={formatDate} />
       </div>
     </div>
   );
@@ -180,7 +190,7 @@ function MappingTable({
   title: string;
   items: Mapping[];
   onDelete: (id: string) => void;
-  onEdit: (mapping: { id: string; type: "campaign" | "adgroup"; display_name: string }) => void;
+  onEdit: (mapping: { id: string; type: "campaign" | "adgroup" | "property"; display_name: string }) => void;
   formatDate: (iso: string) => string;
 }) {
   return (

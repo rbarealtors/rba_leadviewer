@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { invalidateMappingsCache } from "@/lib/leads/google-ads-map";
 
 export async function GET() {
   const supabase = await createSupabaseServerClient();
@@ -23,17 +24,24 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { id, type, display_name } = body;
 
-    if (!id || !type || !display_name) {
+    const cleanId = String(id ?? "").trim();
+    const cleanDisplayName = String(display_name ?? "").trim();
+
+    if (!cleanId || !type || !cleanDisplayName) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    if (!["campaign", "adgroup", "property"].includes(type)) {
+      return NextResponse.json({ error: "Invalid mapping type" }, { status: 400 });
     }
 
     // Upsert mapping
     const { error: upsertError } = await supabase
       .from("campaign_mappings")
       .upsert({
-        id,
+        id: cleanId,
         type,
-        display_name,
+        display_name: cleanDisplayName,
         updated_at: new Date().toISOString(),
       });
 
@@ -41,32 +49,58 @@ export async function POST(request: Request) {
       throw upsertError;
     }
 
-    // Update historical leads in public.leads matching this numeric ID
-    // Since leads_protect_submitted_fields_trigger blocks direct updates to campaign_name/ad_group_name,
-    // we use a service-role query to delete and re-insert if needed, OR we can try to see if the trigger 
-    // lets us bypass it. But typically we need the service_role for this background job.
-    // Let's import createClient from @supabase/supabase-js with service_role.
+    // Clear server in-memory mapping cache immediately
+    invalidateMappingsCache();
+
+    // Update historical leads in public.leads matching this ID
     const { createClient } = await import("@supabase/supabase-js");
     const adminSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const column = type === "campaign" ? "campaign_name" : "ad_group_name";
-    
-    // Find matching leads (where the column contains the ID)
-    const { data: leads, error: leadsError } = await adminSupabase
-      .from("leads")
-      .select("*")
-      .eq("source", "google_ads")
-      .ilike(column, `%${id}%`); // match numeric ID
+    if (type === "campaign") {
+      const [byCol, byPayload] = await Promise.all([
+        adminSupabase.from("leads").select("*").eq("source", "google_ads").ilike("campaign_name", `%${cleanId}%`),
+        adminSupabase.from("leads").select("*").eq("source", "google_ads").filter("raw_payload->>campaign_id", "eq", cleanId),
+      ]);
+      const combined = [...(byCol.data || []), ...(byPayload.data || [])];
+      const leadMap = new Map();
+      combined.forEach((l) => leadMap.set(l.id, l));
+      const matchedLeads = Array.from(leadMap.values());
 
-    if (!leadsError && leads && leads.length > 0) {
-      for (const lead of leads) {
-        // Only update if it actually matches the raw ID format (or we can just blindly update since ilike caught it)
-        const newLead = { ...lead, [column]: display_name };
-        
-        // Delete and re-insert to bypass RLS/Trigger restrictions on updates
+      for (const lead of matchedLeads) {
+        const newLead = { ...lead, campaign_name: cleanDisplayName };
+        await adminSupabase.from("leads").delete().eq("id", lead.id);
+        await adminSupabase.from("leads").insert([newLead]);
+      }
+    } else if (type === "adgroup") {
+      const [byCol, byPayload] = await Promise.all([
+        adminSupabase.from("leads").select("*").in("source", ["google_ads", "meta_ads"]).ilike("ad_group_name", `%${cleanId}%`),
+        adminSupabase.from("leads").select("*").in("source", ["google_ads", "meta_ads"]).filter("raw_payload->>adgroup_id", "eq", cleanId),
+      ]);
+      const combined = [...(byCol.data || []), ...(byPayload.data || [])];
+      const leadMap = new Map();
+      combined.forEach((l) => leadMap.set(l.id, l));
+      const matchedLeads = Array.from(leadMap.values());
+
+      for (const lead of matchedLeads) {
+        const newLead = { ...lead, ad_group_name: cleanDisplayName };
+        await adminSupabase.from("leads").delete().eq("id", lead.id);
+        await adminSupabase.from("leads").insert([newLead]);
+      }
+    } else if (type === "property") {
+      const [byCol, byPayload] = await Promise.all([
+        adminSupabase.from("leads").select("*").in("source", ["magicbricks", "99acres"]).ilike("ad_name", `%${cleanId}%`),
+        adminSupabase.from("leads").select("*").in("source", ["magicbricks", "99acres"]).filter("raw_payload->parsed->>property_id", "eq", cleanId),
+      ]);
+      const combined = [...(byCol.data || []), ...(byPayload.data || [])];
+      const leadMap = new Map();
+      combined.forEach((l) => leadMap.set(l.id, l));
+      const matchedLeads = Array.from(leadMap.values());
+
+      for (const lead of matchedLeads) {
+        const newLead = { ...lead, campaign_name: cleanDisplayName };
         await adminSupabase.from("leads").delete().eq("id", lead.id);
         await adminSupabase.from("leads").insert([newLead]);
       }
@@ -91,6 +125,8 @@ export async function DELETE(request: Request) {
 
     const { error } = await supabase.from("campaign_mappings").delete().eq("id", id);
     if (error) throw error;
+
+    invalidateMappingsCache();
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

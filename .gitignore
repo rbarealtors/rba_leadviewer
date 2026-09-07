@@ -19,3 +19,16 @@ coverage/
 # Local OS and editor files
 .DS_Store
 .vscode/
+*.tsbuildinfo
+
+
+# Python
+*.py
+*.pyc
+__pycache__/
+.pytest_cache/
+venv/
+.venv/
+env/
+.env/
+

@@ -89,6 +89,21 @@ export async function POST(request: Request) {
     );
   }
 
+  // If incoming lead has property_id, check mapping table for a match
+  let resolvedProjectName = parsed.campaign_name;
+  if (parsed.property_id) {
+    try {
+      const { resolvePropertyName } = await import("@/lib/leads/google-ads-map");
+      const mapped = await resolvePropertyName(parsed.property_id);
+      if (mapped) {
+        resolvedProjectName = mapped;
+        parsed.campaign_name = mapped;
+      }
+    } catch (err) {
+      console.error("portal-email: error resolving property mapping", err);
+    }
+  }
+
   try {
     const supabase = createSupabaseAdminClient();
     let submittedAt = new Date().toISOString();
@@ -111,7 +126,7 @@ export async function POST(request: Request) {
       full_name: parsed.full_name || null,
       phone_number: parsed.phone_number || null,
       email: parsed.email || null,
-      campaign_name: parsed.campaign_name || null,
+      campaign_name: resolvedProjectName || null,
       ad_group_name: null,
       ad_name: parsed.property_id ? `Property ${parsed.property_id}` : null,
       budget_range: parsed.budget_range || null,
@@ -123,7 +138,10 @@ export async function POST(request: Request) {
         from: emailFrom,
         subject: emailSubject,
         body: emailBody,
-        parsed,
+        parsed: {
+          ...parsed,
+          campaign_name: resolvedProjectName,
+        },
       },
     });
 
@@ -144,7 +162,7 @@ export async function POST(request: Request) {
       lead: {
         full_name: parsed.full_name,
         phone_number: parsed.phone_number,
-        campaign_name: parsed.campaign_name,
+        campaign_name: resolvedProjectName,
         bhk_configuration: parsed.bhk_configuration,
         budget_range: parsed.budget_range,
       },
