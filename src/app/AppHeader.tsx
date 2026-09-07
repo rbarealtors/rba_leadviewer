@@ -12,7 +12,7 @@ export function AppHeader({ email, isAdmin }: { email?: string; isAdmin: boolean
 
   return (
     <header className="border-b border-line bg-panel">
-      <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between gap-4">
+      <div className="w-full mx-auto px-4 md:px-6 h-14 flex items-center justify-between gap-4 transition-[max-width] duration-150" style={{ maxWidth: "var(--dashboard-width, 1400px)" }}>
         <div className="flex items-center gap-8 h-full">
           <Link href="/leads" className="flex items-center gap-2">
             <svg

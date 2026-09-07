@@ -256,6 +256,30 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
 
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [dashboardWidth, setDashboardWidth] = useState<string>("1400px");
+  const [showWidthSlider, setShowWidthSlider] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("rba_dashboard_width");
+      if (saved) {
+        setDashboardWidth(saved);
+        document.documentElement.style.setProperty("--dashboard-width", saved);
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
+  function handleSetWidth(width: string) {
+    setDashboardWidth(width);
+    document.documentElement.style.setProperty("--dashboard-width", width);
+    try {
+      localStorage.setItem("rba_dashboard_width", width);
+    } catch {
+      // Ignore localStorage errors
+    }
+  }
 
   useEffect(() => {
     setCurrentPage(1);
@@ -541,9 +565,102 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
           </button>
         </div>
 
-        <p className="text-[11px] text-subtle hidden md:block">
-          💡 Click any row to view full details
-        </p>
+        <div className="flex items-center gap-3 ml-auto">
+          <p className="text-[11px] text-subtle hidden xl:block">
+            💡 Click any row to view full details
+          </p>
+
+          {/* Width Controller */}
+          <div className="flex items-center gap-1 bg-panel border border-line rounded-lg p-1 shadow-2xs text-xs">
+            <span className="text-subtle text-[11px] font-medium px-1.5 flex items-center gap-1" title="Adjust dashboard width">
+              <svg className="w-3.5 h-3.5 text-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M8 3L4 7l4 4M4 7h16M16 21l4-4-4-4M20 17H4" />
+              </svg>
+              <span className="hidden sm:inline">Width:</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => handleSetWidth("1400px")}
+              className={`px-2 py-0.5 rounded text-xs font-semibold transition-colors ${
+                dashboardWidth === "1400px"
+                  ? "bg-accent text-white shadow-2xs"
+                  : "text-subtle hover:text-ink hover:bg-canvas"
+              }`}
+              title="Standard width (1400px)"
+            >
+              Standard
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetWidth("1750px")}
+              className={`px-2 py-0.5 rounded text-xs font-semibold transition-colors ${
+                dashboardWidth === "1750px"
+                  ? "bg-accent text-white shadow-2xs"
+                  : "text-subtle hover:text-ink hover:bg-canvas"
+              }`}
+              title="Wide layout (1750px)"
+            >
+              Wide
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetWidth("100%")}
+              className={`px-2 py-0.5 rounded text-xs font-semibold transition-colors ${
+                dashboardWidth === "100%"
+                  ? "bg-accent text-white shadow-2xs"
+                  : "text-subtle hover:text-ink hover:bg-canvas"
+              }`}
+              title="Full screen width (100%)"
+            >
+              Full
+            </button>
+
+            {/* Custom slider toggle */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowWidthSlider((prev) => !prev)}
+                className={`p-1 rounded text-subtle hover:text-ink hover:bg-canvas transition-colors ${
+                  showWidthSlider ? "bg-canvas text-accent" : ""
+                }`}
+                title="Custom width slider"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+              </button>
+              {showWidthSlider && (
+                <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-panel border border-line rounded-lg shadow-xl z-30 space-y-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-ink">Fine-tune Width</span>
+                    <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-canvas border border-line text-subtle font-medium">
+                      {dashboardWidth}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1200"
+                    max="2560"
+                    step="40"
+                    value={dashboardWidth === "100%" ? 2560 : parseInt(dashboardWidth) || 1400}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (val >= 2560) {
+                        handleSetWidth("100%");
+                      } else {
+                        handleSetWidth(`${val}px`);
+                      }
+                    }}
+                    className="w-full accent-accent cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-subtle font-medium">
+                    <span>1200px</span>
+                    <span>1800px</span>
+                    <span>100% (Fluid)</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Stats Cards Row */}
@@ -811,7 +928,7 @@ function LeadsTable({
 
                 {/* Campaign & Child Ad Group */}
                 <Td title={lead.campaign_name || undefined}>
-                  <div className="flex flex-col gap-0.5 max-w-[220px]">
+                  <div className="flex flex-col gap-0.5 max-w-[280px] xl:max-w-none">
                     <span className="font-medium text-ink truncate">
                       {campaign.title}
                     </span>
