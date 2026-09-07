@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { CopyButton } from "@/app/components/CopyButton";
@@ -29,7 +28,6 @@ export function CampaignMappingsClient({
   const router = useRouter();
   const [mappings, setMappings] = useState<Mapping[]>(initialMappings);
   const [saving, setSaving] = useState(false);
-  
 
   const [form, setForm] = useState({
     type: "campaign" as "campaign" | "adgroup" | "property",
@@ -44,10 +42,6 @@ export function CampaignMappingsClient({
   const campaigns = mappings.filter((m) => m.type === "campaign");
   const adgroups = mappings.filter((m) => m.type === "adgroup");
   const properties = mappings.filter((m) => m.type === "property");
-
-  const [propertySearch, setPropertySearch] = useState("");
-  const [propertyPageSize, setPropertyPageSize] = useState(10);
-  const [propertyCurrentPage, setPropertyCurrentPage] = useState(1);
 
   const filteredProperties = properties.filter((item) => {
     const term = propertySearch.trim().toLowerCase();
@@ -69,15 +63,9 @@ export function CampaignMappingsClient({
   const startPropertyItem = totalPropertyCount === 0 ? 0 : startPropertyIndex + 1;
   const endPropertyItem = Math.min(startPropertyIndex + propertyPageSize, totalPropertyCount);
 
-  function handleEdit(item: { id: string; type: "campaign" | "adgroup" | "property"; display_name: string }) {
-    setForm(item);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!form.id || !form.display_name) return;
-    
 
     setSaving(true);
     try {
@@ -86,12 +74,10 @@ export function CampaignMappingsClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      
 
       if (!res.ok) {
         throw new Error("Failed to save mapping");
       }
-      
 
       // Reset form on success
       setForm({ type: "campaign", id: "", display_name: "" });
@@ -129,7 +115,6 @@ export function CampaignMappingsClient({
 
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString("en-US", {
-      month: "short", day: "numeric", year: "numeric"
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -204,15 +189,12 @@ export function CampaignMappingsClient({
           </p>
           <div className="flex flex-wrap gap-3">
             {unmappedIds.map((u) => (
-              <div key={u.id} className="flex items-center gap-2 bg-white border border-amber-200 rounded-md px-3 py-1.5 shadow-sm text-sm">
-                <span className="font-mono text-amber-900">{u.id}</span>
               <div key={u.id} className="flex items-center gap-1.5 bg-white border border-amber-200 rounded-md px-3 py-1.5 shadow-sm text-sm">
                 <span className="font-mono text-amber-900 font-semibold">{u.id}</span>
                 <CopyButton text={u.id} title="Copy ID" />
                 <span className="text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded uppercase font-medium">{u.type}</span>
                 <button
                   onClick={() => handleMapUnmapped(u)}
-                  className="ml-2 text-xs font-semibold text-accent hover:underline"
                   className="ml-2 text-xs font-semibold text-accent hover:underline cursor-pointer"
                 >
                   Map Name &rarr;
@@ -223,11 +205,6 @@ export function CampaignMappingsClient({
         </div>
       )}
 
-      {/* Google Ads & Meta Mappings */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <MappingTable title="Campaigns (Google Ads)" items={campaigns} onDelete={handleDelete} onEdit={handleEdit} formatDate={formatDate} />
-        <MappingTable title="Ad Groups (Google / Meta)" items={adgroups} onDelete={handleDelete} onEdit={handleEdit} formatDate={formatDate} />
-      </div>
       {/* Campaigns & Ad Groups (Hierarchical Table: Ad Groups as Child Component of Campaign Name) */}
       <CampaignsAndAdGroupsTable
         campaigns={campaigns}
@@ -343,9 +320,6 @@ export function CampaignMappingsClient({
                 {paginatedProperties.map((item) => (
                   <tr key={item.id} className="hover:bg-canvas/50 transition-colors group">
                     <td className="px-5 py-3 text-sm">
-                      <span className="font-mono text-xs font-semibold px-2 py-1 rounded bg-canvas border border-line text-ink">
-                        {item.id}
-                      </span>
                       <div className="flex items-center gap-1.5">
                         <span className="font-mono text-xs font-semibold px-2 py-1 rounded bg-canvas border border-line text-ink">
                           {item.id}
@@ -453,20 +427,14 @@ export function CampaignMappingsClient({
   );
 }
 
-function MappingTable({
-  title,
-  items,
 function CampaignsAndAdGroupsTable({
   campaigns,
   adgroups,
   campaignToAdGroups,
   onDelete,
   onEdit,
-  formatDate
   formatDate,
 }: {
-  title: string;
-  items: Mapping[];
   campaigns: Mapping[];
   adgroups: Mapping[];
   campaignToAdGroups: Record<string, string[]>;
@@ -484,8 +452,6 @@ function CampaignsAndAdGroupsTable({
 
   return (
     <div className="bg-panel border border-line rounded-xl shadow-sm overflow-hidden flex flex-col">
-      <div className="px-5 py-4 border-b border-line bg-canvas">
-        <h3 className="font-bold text-ink">{title}</h3>
       <div className="p-5 border-b border-line bg-canvas flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -501,19 +467,12 @@ function CampaignsAndAdGroupsTable({
       </div>
 
       <div className="flex-1 overflow-auto">
-        {items.length === 0 ? (
-          <div className="p-8 text-center text-subtle text-sm">No mappings found.</div>
         {campaigns.length === 0 && adgroups.length === 0 ? (
           <div className="p-8 text-center text-subtle text-sm">No campaign or ad group mappings found.</div>
         ) : (
-          <table className="w-full">
           <table className="w-full text-left border-collapse">
             <thead className="bg-canvas border-b border-line sticky top-0">
               <tr>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-subtle uppercase tracking-wider">ID</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-subtle uppercase tracking-wider">Name</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-subtle uppercase tracking-wider">Updated</th>
-                <th className="px-4 py-2.5 text-right text-xs font-semibold text-subtle uppercase tracking-wider"></th>
                 <th className="px-5 py-3 text-xs font-semibold text-subtle uppercase tracking-wider w-[240px]">
                   ID
                 </th>
@@ -532,23 +491,6 @@ function CampaignsAndAdGroupsTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-line bg-panel">
-              {items.map((item) => (
-                <tr key={item.id} className="hover:bg-canvas/50 transition-colors group">
-                  <td className="px-4 py-3 text-sm font-mono text-subtle">{item.id}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-ink">{item.display_name}</td>
-                  <td className="px-4 py-3 text-xs text-subtle">{formatDate(item.updated_at)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => onEdit(item)} className="p-1 text-subtle hover:text-accent" title="Edit">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                      </button>
-                      <button onClick={() => onDelete(item.id)} className="p-1 text-subtle hover:text-red-600" title="Delete">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
               {campaigns.map((camp) => {
                 const childIds = campaignToAdGroups[camp.id] || [];
                 const childAdGroups = adgroups.filter((ag) => childIds.includes(ag.id));
@@ -708,4 +650,3 @@ function CampaignsAndAdGroupsTable({
     </div>
   );
 }
-

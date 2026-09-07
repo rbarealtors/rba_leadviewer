@@ -720,7 +720,6 @@ function LeadsTable({
             <Th onClick={() => onSort("name")}>Name{sortIndicator("name")}</Th>
             <Th className="min-w-[175px]">Phone & Actions</Th>
             <Th>Campaign</Th>
-            <Th>Ad Group</Th>
             <Th>Status</Th>
           </tr>
         </thead>
@@ -810,10 +809,8 @@ function LeadsTable({
                   />
                 </Td>
 
-                {/* Campaign */}
-                {/* Campaign with Ad Group as child component */}
+                {/* Campaign & Child Ad Group */}
                 <Td title={lead.campaign_name || undefined}>
-                  <div className="flex flex-col gap-1 max-w-[200px]">
                   <div className="flex flex-col gap-0.5 max-w-[220px]">
                     <span className="font-medium text-ink truncate">
                       {campaign.title}
@@ -825,7 +822,6 @@ function LeadsTable({
                       </div>
                     )}
                     {campaign.badges.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
                       <div className="flex flex-wrap gap-1 mt-0.5">
                         {campaign.badges.map((b) => (
                           <span
@@ -838,11 +834,6 @@ function LeadsTable({
                       </div>
                     )}
                   </div>
-                </Td>
-
-                {/* Ad Group */}
-                <Td title={adGroup.full}>
-                  <span className="text-subtle text-xs">{adGroup.display}</span>
                 </Td>
 
                 {/* Status */}
