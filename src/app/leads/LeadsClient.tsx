@@ -11,6 +11,26 @@ import { SourceBadge } from "./SourceBadge";
 import { PhoneCell } from "./PhoneCell";
 import { LeadDetailDrawer } from "./LeadDetailDrawer";
 
+type ColumnKey = "time" | "source" | "name" | "phone" | "campaign" | "status";
+
+const DEFAULT_COL_WIDTHS: Record<ColumnKey, number> = {
+  time: 160,
+  source: 125,
+  name: 185,
+  phone: 210,
+  campaign: 300,
+  status: 125,
+};
+
+const MIN_COL_WIDTHS: Record<ColumnKey, number> = {
+  time: 110,
+  source: 90,
+  name: 120,
+  phone: 160,
+  campaign: 160,
+  status: 100,
+};
+
 type DatePreset = "today" | "yesterday" | "last7" | "last7days" | "last30" | "last30days" | "thisMonth" | "all" | "custom";
 type SortKey = "time" | "name" | "budget" | "bhk";
 type ViewMode = "all" | "new";
@@ -800,6 +820,47 @@ function LeadsTable({
 }) {
   const allPageSelected = leads.length > 0 && leads.every((l) => selectedIds.has(l.id));
 
+  const [colWidths, setColWidths] = useState<Record<ColumnKey, number>>(DEFAULT_COL_WIDTHS);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("rba_lead_col_widths");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setColWidths((prev) => ({ ...prev, ...parsed }));
+      }
+    } catch {}
+  }, []);
+
+  function handleResizeColumn(key: ColumnKey, newWidth: number) {
+    setColWidths((prev) => {
+      const updated = { ...prev, [key]: newWidth };
+      try {
+        localStorage.setItem("rba_lead_col_widths", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }
+
+  function handleResetColumn(key: ColumnKey) {
+    setColWidths((prev) => {
+      const updated = { ...prev, [key]: DEFAULT_COL_WIDTHS[key] };
+      try {
+        localStorage.setItem("rba_lead_col_widths", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }
+
+  const totalTableWidth =
+    40 +
+    colWidths.time +
+    colWidths.source +
+    colWidths.name +
+    colWidths.phone +
+    colWidths.campaign +
+    colWidths.status;
+
   function toggleAll() {
     if (allPageSelected) {
       setSelectedIds((prev) => {
@@ -828,16 +889,72 @@ function LeadsTable({
 
   return (
     <div className="border border-line rounded-lg bg-panel overflow-auto max-h-[calc(100vh-230px)] shadow-xs relative">
-      <table className="w-full text-sm min-w-[1100px] border-collapse">
+      <table
+        className="w-full text-sm border-collapse table-fixed"
+        style={{ minWidth: `${totalTableWidth}px` }}
+      >
+        <colgroup>
+          <col style={{ width: "40px" }} />
+          <col style={{ width: `${colWidths.time}px` }} />
+          <col style={{ width: `${colWidths.source}px` }} />
+          <col style={{ width: `${colWidths.name}px` }} />
+          <col style={{ width: `${colWidths.phone}px` }} />
+          <col style={{ width: `${colWidths.campaign}px` }} />
+          <col style={{ width: `${colWidths.status}px` }} />
+        </colgroup>
         <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_#e5e7eb]">
           <tr className="text-left text-xs text-subtle bg-white">
             <Th className="w-[40px] px-4"><input type="checkbox" checked={allPageSelected} onChange={toggleAll} className="rounded border-line accent-accent cursor-pointer" /></Th>
-            <Th onClick={() => onSort("time")}>Date & Time{sortIndicator("time")}</Th>
-            <Th>Source</Th>
-            <Th onClick={() => onSort("name")}>Name{sortIndicator("name")}</Th>
-            <Th className="min-w-[175px]">Phone & Actions</Th>
-            <Th>Campaign</Th>
-            <Th>Status</Th>
+            <ResizableTh
+              width={colWidths.time}
+              minWidth={MIN_COL_WIDTHS.time}
+              onResize={(w) => handleResizeColumn("time", w)}
+              onReset={() => handleResetColumn("time")}
+              onClick={() => onSort("time")}
+            >
+              Date & Time{sortIndicator("time")}
+            </ResizableTh>
+            <ResizableTh
+              width={colWidths.source}
+              minWidth={MIN_COL_WIDTHS.source}
+              onResize={(w) => handleResizeColumn("source", w)}
+              onReset={() => handleResetColumn("source")}
+            >
+              Source
+            </ResizableTh>
+            <ResizableTh
+              width={colWidths.name}
+              minWidth={MIN_COL_WIDTHS.name}
+              onResize={(w) => handleResizeColumn("name", w)}
+              onReset={() => handleResetColumn("name")}
+              onClick={() => onSort("name")}
+            >
+              Name{sortIndicator("name")}
+            </ResizableTh>
+            <ResizableTh
+              width={colWidths.phone}
+              minWidth={MIN_COL_WIDTHS.phone}
+              onResize={(w) => handleResizeColumn("phone", w)}
+              onReset={() => handleResetColumn("phone")}
+            >
+              Phone & Actions
+            </ResizableTh>
+            <ResizableTh
+              width={colWidths.campaign}
+              minWidth={MIN_COL_WIDTHS.campaign}
+              onResize={(w) => handleResizeColumn("campaign", w)}
+              onReset={() => handleResetColumn("campaign")}
+            >
+              Campaign
+            </ResizableTh>
+            <ResizableTh
+              width={colWidths.status}
+              minWidth={MIN_COL_WIDTHS.status}
+              onResize={(w) => handleResizeColumn("status", w)}
+              onReset={() => handleResetColumn("status")}
+            >
+              Status
+            </ResizableTh>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -865,7 +982,7 @@ function LeadsTable({
                 </Td>
                 
                 {/* Date & Time */}
-                <Td>
+                <Td className="overflow-hidden">
                   <div className="flex items-center gap-2">
                     {isNew && (
                       <span
@@ -891,12 +1008,12 @@ function LeadsTable({
                 </Td>
 
                 {/* Source Badge */}
-                <Td>
+                <Td className="overflow-hidden">
                   <SourceBadge source={lead.source} platform={lead.platform} />
                 </Td>
 
                 {/* Name & Email */}
-                <Td>
+                <Td className="overflow-hidden">
                   <div className="flex flex-col">
                     <span className="font-bold text-ink inline-flex items-center gap-1.5">
                       {displayOrDash(lead.full_name)}
@@ -918,7 +1035,7 @@ function LeadsTable({
                 </Td>
 
                 {/* Phone & Actions */}
-                <Td className="min-w-[175px]">
+                <Td className="overflow-hidden">
                   <PhoneCell
                     phone={lead.phone_number}
                     fullName={lead.full_name}
@@ -927,7 +1044,7 @@ function LeadsTable({
                 </Td>
 
                 {/* Campaign & Child Ad Group */}
-                <Td title={lead.campaign_name || undefined}>
+                <Td title={lead.campaign_name || undefined} className="overflow-hidden">
                   <div className="flex flex-col gap-0.5 max-w-[280px] xl:max-w-none">
                     <span className="font-medium text-ink truncate">
                       {campaign.title}
@@ -954,7 +1071,7 @@ function LeadsTable({
                 </Td>
 
                 {/* Status */}
-                <Td>
+                <Td className="overflow-hidden">
                   <button
                     type="button"
                     onClick={(e) => {
@@ -976,6 +1093,88 @@ function LeadsTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function ResizableTh({
+  children,
+  onClick,
+  width,
+  minWidth = 80,
+  onResize,
+  onReset,
+  className = "",
+}: {
+  children?: React.ReactNode;
+  onClick?: () => void;
+  width: number;
+  minWidth?: number;
+  onResize: (newWidth: number) => void;
+  onReset?: () => void;
+  className?: string;
+}) {
+  const [isResizing, setIsResizing] = useState(false);
+
+  function handleMouseDown(e: React.MouseEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsResizing(true);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const startX = e.clientX;
+    const startWidth = width;
+
+    function onMouseMove(moveEvent: MouseEvent) {
+      const delta = moveEvent.clientX - startX;
+      const nextWidth = Math.round(Math.max(minWidth, startWidth + delta));
+      onResize(nextWidth);
+    }
+
+    function onMouseUp() {
+      setIsResizing(false);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    }
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  }
+
+  return (
+    <th
+      onClick={onClick}
+      style={{ width: `${width}px`, minWidth: `${minWidth}px` }}
+      className={`px-3 py-2.5 font-medium border-b border-line whitespace-nowrap relative select-none group/th ${
+        onClick ? "cursor-pointer hover:bg-canvas/50" : ""
+      } ${className}`}
+    >
+      <div className="flex items-center gap-1.5 pr-2 overflow-hidden">{children}</div>
+
+      {/* Meta Ads Manager style Column Resize Handle */}
+      <div
+        onMouseDown={handleMouseDown}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          onReset?.();
+        }}
+        onClick={(e) => e.stopPropagation()}
+        className={`absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center z-10 group/handle ${
+          isResizing ? "bg-accent/15" : ""
+        }`}
+        title="Drag to resize column (Double-click to reset)"
+      >
+        <div
+          className={`w-[2px] h-4 rounded-full transition-colors ${
+            isResizing
+              ? "bg-accent h-full"
+              : "bg-line group-hover/handle:bg-accent group-hover/th:bg-subtle/50"
+          }`}
+        />
+      </div>
+    </th>
   );
 }
 
