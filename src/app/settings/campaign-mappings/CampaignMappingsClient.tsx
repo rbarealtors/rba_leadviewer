@@ -36,6 +36,35 @@ export function CampaignMappingsClient({
   const adgroups = mappings.filter((m) => m.type === "adgroup");
   const properties = mappings.filter((m) => m.type === "property");
 
+  const [propertySearch, setPropertySearch] = useState("");
+  const [propertyPageSize, setPropertyPageSize] = useState(10);
+  const [propertyCurrentPage, setPropertyCurrentPage] = useState(1);
+
+  const filteredProperties = properties.filter((item) => {
+    const term = propertySearch.trim().toLowerCase();
+    if (!term) return true;
+    return (
+      item.id.toLowerCase().includes(term) ||
+      item.display_name.toLowerCase().includes(term)
+    );
+  });
+
+  const totalPropertyCount = filteredProperties.length;
+  const totalPropertyPages = Math.max(1, Math.ceil(totalPropertyCount / propertyPageSize));
+  const safePropertyPage = Math.min(propertyCurrentPage, totalPropertyPages);
+  const startPropertyIndex = (safePropertyPage - 1) * propertyPageSize;
+  const paginatedProperties = filteredProperties.slice(
+    startPropertyIndex,
+    startPropertyIndex + propertyPageSize
+  );
+  const startPropertyItem = totalPropertyCount === 0 ? 0 : startPropertyIndex + 1;
+  const endPropertyItem = Math.min(startPropertyIndex + propertyPageSize, totalPropertyCount);
+
+  function handleEdit(item: { id: string; type: "campaign" | "adgroup" | "property"; display_name: string }) {
+    setForm(item);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!form.id || !form.display_name) return;
@@ -170,11 +199,216 @@ export function CampaignMappingsClient({
         </div>
       )}
 
-      {/* Existing Mappings Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <MappingTable title="Campaigns (Google Ads)" items={campaigns} onDelete={handleDelete} onEdit={setForm} formatDate={formatDate} />
-        <MappingTable title="Ad Groups (Google / Meta)" items={adgroups} onDelete={handleDelete} onEdit={setForm} formatDate={formatDate} />
-        <MappingTable title="Property IDs (Portals)" items={properties} onDelete={handleDelete} onEdit={setForm} formatDate={formatDate} />
+      {/* Google Ads & Meta Mappings */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <MappingTable title="Campaigns (Google Ads)" items={campaigns} onDelete={handleDelete} onEdit={handleEdit} formatDate={formatDate} />
+        <MappingTable title="Ad Groups (Google / Meta)" items={adgroups} onDelete={handleDelete} onEdit={handleEdit} formatDate={formatDate} />
+      </div>
+
+      {/* Property IDs (Portals) - Leads Dashboard-Style Table View */}
+      <div className="bg-panel border border-line rounded-xl shadow-sm overflow-hidden flex flex-col">
+        {/* Header & Search Bar */}
+        <div className="p-5 border-b border-line bg-canvas">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-ink text-base">Property IDs (Portals)</h3>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-panel border border-line text-subtle">
+                  {properties.length} total
+                </span>
+                {propertySearch.trim() && (
+                  <span className="text-xs font-medium text-subtle">
+                    ({filteredProperties.length} match &ldquo;{propertySearch.trim()}&rdquo;)
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-subtle mt-0.5">
+                Map raw portal property IDs from Magicbricks &amp; 99acres to project display names.
+              </p>
+            </div>
+          </div>
+
+          {/* Search bar below the Property ID header */}
+          <div className="relative">
+            <input
+              type="text"
+              value={propertySearch}
+              onChange={(e) => {
+                setPropertySearch(e.target.value);
+                setPropertyCurrentPage(1);
+              }}
+              placeholder="Search by Property ID or Display Name..."
+              className="w-full rounded-lg border border-line pl-10 pr-10 py-2.5 text-sm bg-panel text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent shadow-2xs placeholder:text-subtle/70 font-medium"
+            />
+            <svg
+              className="w-4 h-4 text-subtle absolute left-3.5 top-3.5 pointer-events-none"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            {propertySearch && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPropertySearch("");
+                  setPropertyCurrentPage(1);
+                }}
+                className="absolute right-3 top-2.5 p-1 rounded-md text-subtle hover:text-ink hover:bg-canvas transition-colors cursor-pointer"
+                title="Clear search"
+                aria-label="Clear search"
+              >
+                <svg
+                  className="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Table View */}
+        <div className="flex-1 overflow-auto">
+          {properties.length === 0 ? (
+            <div className="py-12 text-center text-subtle text-sm">
+              No property mappings found yet. Add one above.
+            </div>
+          ) : filteredProperties.length === 0 ? (
+            <div className="py-12 text-center text-subtle text-sm">
+              No property mappings match &ldquo;{propertySearch}&rdquo;.
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-canvas border-b border-line sticky top-0">
+                <tr>
+                  <th className="px-5 py-3 text-xs font-semibold text-subtle uppercase tracking-wider">
+                    Property ID
+                  </th>
+                  <th className="px-5 py-3 text-xs font-semibold text-subtle uppercase tracking-wider">
+                    Display Name
+                  </th>
+                  <th className="px-5 py-3 text-xs font-semibold text-subtle uppercase tracking-wider">
+                    Last Updated
+                  </th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold text-subtle uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line bg-panel">
+                {paginatedProperties.map((item) => (
+                  <tr key={item.id} className="hover:bg-canvas/50 transition-colors group">
+                    <td className="px-5 py-3 text-sm">
+                      <span className="font-mono text-xs font-semibold px-2 py-1 rounded bg-canvas border border-line text-ink">
+                        {item.id}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-sm font-medium text-ink">
+                      {item.display_name}
+                    </td>
+                    <td className="px-5 py-3 text-xs text-subtle">
+                      {formatDate(item.updated_at)}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleEdit(item)}
+                          className="p-1.5 text-subtle hover:text-accent rounded hover:bg-canvas transition-colors"
+                          title="Edit"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="p-1.5 text-subtle hover:text-red-600 rounded hover:bg-canvas transition-colors"
+                          title="Delete"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Footer Navigation (PaginationBar matching LeadsClient) */}
+        {filteredProperties.length > 0 && (
+          <div className="bg-canvas border-t border-line px-5 py-3 flex flex-wrap items-center justify-between gap-4 text-xs">
+            {/* Left side: Showing X to Y of Z properties */}
+            <div className="text-subtle font-medium">
+              Showing <span className="font-semibold text-ink">{startPropertyItem}</span> to{" "}
+              <span className="font-semibold text-ink">{endPropertyItem}</span> of{" "}
+              <span className="font-semibold text-ink">{totalPropertyCount}</span> properties
+            </div>
+
+            {/* Right side controls */}
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Rows per page selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-subtle font-medium">Rows per page:</span>
+                <select
+                  value={propertyPageSize}
+                  onChange={(e) => {
+                    setPropertyPageSize(Number(e.target.value));
+                    setPropertyCurrentPage(1);
+                  }}
+                  className="bg-panel border border-line rounded px-2 py-1 text-ink font-medium outline-none focus:border-accent shadow-2xs"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+
+              {/* Page indicator */}
+              <div className="text-subtle font-medium">
+                Page <span className="font-semibold text-ink">{safePropertyPage}</span> of{" "}
+                <span className="font-semibold text-ink">{totalPropertyPages}</span>
+              </div>
+
+              {/* Previous & Next buttons */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={safePropertyPage <= 1}
+                  onClick={() => setPropertyCurrentPage((p) => Math.max(1, p - 1))}
+                  className="px-2.5 py-1 rounded border border-line bg-panel text-ink font-medium hover:bg-canvas disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  disabled={safePropertyPage >= totalPropertyPages}
+                  onClick={() => setPropertyCurrentPage((p) => Math.min(totalPropertyPages, p + 1))}
+                  className="px-2.5 py-1 rounded border border-line bg-panel text-ink font-medium hover:bg-canvas disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

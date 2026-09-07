@@ -4,6 +4,8 @@ import { getUsersForAdmin } from "@/lib/auth/get-users";
 import { UsersClient } from "./UsersClient";
 import type { ManagedUser } from "@/lib/auth/user-list";
 
+export const dynamic = "force-dynamic";
+
 export default async function UsersPage() {
   const user = await requireAdmin();
   let users: ManagedUser[] = [];
