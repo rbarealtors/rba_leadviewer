@@ -1035,7 +1035,7 @@ function LeadsTable({
                 </Td>
 
                 {/* Phone & Actions */}
-                <Td className="overflow-hidden">
+                <Td className="overflow-hidden min-w-[175px]">
                   <PhoneCell
                     phone={lead.phone_number}
                     fullName={lead.full_name}

@@ -74,7 +74,7 @@ export default async function LeadsPage() {
     <div className="min-h-screen bg-canvas">
       <AppHeader email={user?.email} isAdmin={isAdmin(user)} />
 
-      <main className="w-full mx-auto px-4 md:px-6 py-5 transition-[max-width] duration-150" style={{ maxWidth: "var(--dashboard-width, 1400px)" }}>
+      <main className="max-w-[1400px] mx-auto px-6 py-5">
         {error ? (
           <p className="text-sm text-red-600">Could not load leads. Please refresh.</p>
         ) : (
