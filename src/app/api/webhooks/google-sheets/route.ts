@@ -54,9 +54,10 @@ export async function POST(request: Request) {
 
   const lead = body.lead as Record<string, unknown>;
   const serializedLead = JSON.stringify(lead);
-  const externalLeadId = value(body as Record<string, unknown>, "external_lead_id", "event_id")
-    || value(lead, "id", "Lead ID", "lead_id")
-    || await digestHex(serializedLead);
+  const externalLeadId =
+    value(body as Record<string, unknown>, "external_lead_id", "event_id") ||
+    value(lead, "id", "Lead ID", "lead_id") ||
+    (await digestHex(serializedLead));
 
   const submittedAtCandidate = value(
     lead,

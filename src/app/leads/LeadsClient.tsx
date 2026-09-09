@@ -378,7 +378,7 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount }: { initialLe
     return filtered.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
   }, [filtered, safeCurrentPage, pageSize]);
 
-  // Use precomputed DB KPIs for initial total counts
+  // Use precomputed DB KPIs for KPI cards
   const kpiTotal = kpiCounts?.total_count || totalCount;
   const kpiNew = kpiCounts?.new_count || 0;
   const kpiViewed = kpiCounts?.viewed_count || 0;

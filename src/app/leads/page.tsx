@@ -23,16 +23,17 @@ export default async function LeadsPage() {
   // this ever renders, but we guard again here since this is also where
   // the actual data fetch happens and RLS is the real boundary, not this
   // check.
-  
-  const leadsQuery = supabase
+  const query = supabase
     .from("leads")
-    .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at")
+    .select(
+      "id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at"
+    )
     .order("source_submitted_at", { ascending: false })
     .range(0, 49);
 
   const kpisQuery = supabase.rpc("get_lead_kpis");
 
-  const [leadsResponse, kpisResponse] = await Promise.all([leadsQuery, kpisQuery]);
+  const [leadsResponse, kpisResponse] = await Promise.all([query, kpisQuery]);
   const { data, error } = leadsResponse;
   
   const kpiCounts = (kpisResponse.data as any) || {
