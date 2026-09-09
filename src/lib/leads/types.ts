@@ -1,4 +1,5 @@
 export type LeadSource = "google_ads" | "meta_ads" | "99acres" | "magicbricks";
+export type LeadSource = "google_ads" | "meta_ads" | "99acres" | "magicbricks" | "direct_walk_in" | "phone_call" | "referral";
 export type LeadPlatform = "facebook" | "instagram" | null;
 
 /** Shape of a row as it's inserted into public.leads. */

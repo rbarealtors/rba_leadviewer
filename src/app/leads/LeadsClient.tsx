@@ -10,6 +10,7 @@ import { setLeadViewed } from "./actions";
 import { SourceBadge } from "./SourceBadge";
 import { PhoneCell } from "./PhoneCell";
 import { LeadDetailDrawer } from "./LeadDetailDrawer";
+import { AddLeadDrawer } from "@/components/leads/AddLeadDrawer";
 
 type ColumnKey = "time" | "source" | "name" | "phone" | "campaign" | "status";
 
@@ -318,6 +319,7 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [, startTransition] = useTransition();
+  const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
 
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -522,6 +524,17 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
         onCustomFrom={setCustomFrom}
         customTo={customTo}
         onCustomTo={setCustomTo}
+        rightActions={
+          <button
+            onClick={() => setIsAddLeadOpen(true)}
+            className="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium py-2 px-4 rounded-md transition-colors shadow-2xs"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Add Lead
+          </button>
+        }
       />
 
       {/* Segments & Top Right Controls */}
@@ -823,6 +836,12 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
           })}
         </div>
       )}
+
+      <AddLeadDrawer 
+        isOpen={isAddLeadOpen} 
+        onClose={() => setIsAddLeadOpen(false)} 
+        onLeadAdded={(lead) => setLeads((prev) => [lead, ...prev])} 
+      />
     </div>
   );
 }
@@ -1257,6 +1276,7 @@ function FiltersBar(props: {
   onCustomFrom: (v: string) => void;
   customTo: string;
   onCustomTo: (v: string) => void;
+  rightActions?: React.ReactNode;
 }) {
   const selectClass =
     "text-sm font-medium border border-line rounded-md px-3 py-2 bg-panel text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent shadow-2xs appearance-none pr-8 bg-[url('data:image/svg+xml;utf8,<svg fill=\"none\" stroke=\"%236b7280\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M19 9l-7 7-7-7\"></path></svg>')] bg-no-repeat bg-[position:right_0.75rem_center] bg-[length:1em_1em]";
@@ -1321,6 +1341,9 @@ function FiltersBar(props: {
             <option value="meta_ads">Meta Ads</option>
             <option value="99acres">99acres</option>
             <option value="magicbricks">MagicBricks</option>
+            <option value="direct_walk_in">Direct Walk-in</option>
+            <option value="phone_call">Phone Call</option>
+            <option value="referral">Referral</option>
           </select>
 
           <OptionSelect
@@ -1397,6 +1420,7 @@ function FiltersBar(props: {
           >
             Reset
           </button>
+          {props.rightActions}
         </div>
       </div>
     </div>
