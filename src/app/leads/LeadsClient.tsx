@@ -162,7 +162,7 @@ function playChime() {
   }
 }
 
-export function LeadsClient({ initialLeads, kpiCounts, totalCount }: { initialLeads: Lead[], kpiCounts: any, totalCount: number }) {
+export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalCount }: { initialLeads: Lead[], kpiCounts: any, totalCount: number }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const leadsRef = useRef<Lead[]>(initialLeads);
@@ -172,10 +172,11 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount }: { initialLe
   useEffect(() => {
     let isMounted = true;
     async function fetchRemaining() {
-      if (leadsRef.current.length >= totalCount) return;
+      const targetTotal = initialTotalCount || kpiCounts?.total || kpiCounts?.total_count || 0;
+      if (leadsRef.current.length >= targetTotal) return;
       let currentLength = leadsRef.current.length;
       
-      while (currentLength < totalCount && isMounted) {
+      while (currentLength < targetTotal && isMounted) {
         const { data, error } = await supabase
           .from("leads")
           .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at")
@@ -196,7 +197,7 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount }: { initialLe
     }
     fetchRemaining();
     return () => { isMounted = false; };
-  }, [totalCount, supabase]);
+  }, [initialTotalCount, kpiCounts, supabase]);
 
   useEffect(() => {
     setLeads(initialLeads);
@@ -378,17 +379,22 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount }: { initialLe
     return filtered.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
   }, [filtered, safeCurrentPage, pageSize]);
 
-  // Use precomputed DB KPIs for KPI cards
-  const kpiTotal = kpiCounts?.total_count || totalCount;
-  const kpiNew = kpiCounts?.new_count || 0;
-  const kpiViewed = kpiCounts?.viewed_count || 0;
+  const isAllTimeUnfiltered = datePreset === "all" && search === "" && source === "all" && campaign === "all" && adGroup === "all" && budget === "all" && bhk === "all" && planning === "all";
 
-  const googleCount = kpiCounts?.google_count || 0;
-  const metaCount = kpiCounts?.meta_count || 0;
-  const acresCount = kpiCounts?.acres_count || 0;
-  const mbCount = kpiCounts?.mb_count || 0;
+  const totalCount = isAllTimeUnfiltered && (kpiCounts?.total ?? kpiCounts?.total_count) ? (kpiCounts.total ?? kpiCounts.total_count) : filtered.length;
+  const newCount = isAllTimeUnfiltered && kpiCounts?.new_count != null ? kpiCounts.new_count : filtered.filter((l) => !l.viewed_at).length;
+  const viewedCount = isAllTimeUnfiltered && kpiCounts?.viewed_count != null ? kpiCounts.viewed_count : totalCount - newCount;
 
+  // Dynamic KPI metrics matching the active date window
   const dateLabel = getDatePresetLabel(datePreset, customFrom, customTo);
+  const kpiTotal = isAllTimeUnfiltered && (kpiCounts?.total ?? kpiCounts?.total_count) ? (kpiCounts.total ?? kpiCounts.total_count) : filtered.length;
+  const kpiNew = isAllTimeUnfiltered && kpiCounts?.new_count != null ? kpiCounts.new_count : filtered.filter((l) => !l.viewed_at).length;
+  const kpiViewed = isAllTimeUnfiltered && kpiCounts?.viewed_count != null ? kpiCounts.viewed_count : kpiTotal - kpiNew;
+
+  const googleCount = filtered.filter((l) => l.source === "google_ads").length;
+  const metaCount = filtered.filter((l) => l.source === "meta_ads").length;
+  const acresCount = filtered.filter((l) => l.source === "99acres").length;
+  const mbCount = filtered.filter((l) => l.source === "magicbricks").length;
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -517,7 +523,7 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount }: { initialLe
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
             New
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${view === "new" ? "bg-white/60" : "bg-canvas border border-line"}`}>{kpiNew}</span>
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${view === "new" ? "bg-white/60" : "bg-canvas border border-line"}`}>{newCount}</span>
           </button>
 
           <div className="w-px h-5 bg-line mx-1" />

@@ -36,17 +36,14 @@ export default async function LeadsPage() {
   const [leadsResponse, kpisResponse] = await Promise.all([query, kpisQuery]);
   const { data, error } = leadsResponse;
   
-  const kpiCounts = (kpisResponse.data as any) || {
-    total_count: 0,
+  const kpiData = Array.isArray(kpisResponse.data) ? kpisResponse.data[0] : kpisResponse.data;
+  const kpiCounts = (kpiData as any) || {
+    total: 0,
     new_count: 0,
     viewed_count: 0,
-    google_count: 0,
-    meta_count: 0,
-    acres_count: 0,
-    mb_count: 0,
   };
   
-  const totalCount = kpiCounts.total_count || 0;
+  const totalCount = kpiCounts.total ?? kpiCounts.total_count ?? 0;
 
   const rawLeads = (data ?? []) as any[];
   const leads: Lead[] = await Promise.all(
