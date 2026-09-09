@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -20,6 +19,13 @@ function value(lead: Record<string, unknown>, ...keys: string[]) {
     if (typeof candidate === "number") return String(candidate);
   }
   return "";
+}
+
+async function digestHex(message: string) {
+  const msgUint8 = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export async function POST(request: Request) {
@@ -50,7 +56,7 @@ export async function POST(request: Request) {
   const serializedLead = JSON.stringify(lead);
   const externalLeadId = value(body as Record<string, unknown>, "external_lead_id", "event_id")
     || value(lead, "id", "Lead ID", "lead_id")
-    || createHash("sha256").update(serializedLead).digest("hex");
+    || await digestHex(serializedLead);
 
   const submittedAtCandidate = value(
     lead,

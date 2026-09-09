@@ -162,11 +162,41 @@ function playChime() {
   }
 }
 
-export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
+export function LeadsClient({ initialLeads, kpiCounts, totalCount }: { initialLeads: Lead[], kpiCounts: any, totalCount: number }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const leadsRef = useRef<Lead[]>(initialLeads);
   const [highlightedRows, setHighlightedRows] = useState<Set<string>>(new Set());
+
+  // Background fetch remaining leads to support client-side filtering without hitting worker limits
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchRemaining() {
+      if (leadsRef.current.length >= totalCount) return;
+      let currentLength = leadsRef.current.length;
+      
+      while (currentLength < totalCount && isMounted) {
+        const { data, error } = await supabase
+          .from("leads")
+          .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at")
+          .order("source_submitted_at", { ascending: false })
+          .range(currentLength, currentLength + 499);
+          
+        if (error || !data || data.length === 0) break;
+        
+        setLeads((prev) => {
+          const combined = [...prev, ...(data as Lead[])];
+          const unique = combined.filter((v, i, a) => a.findIndex((t) => t.id === v.id) === i);
+          return unique.sort(
+            (a, b) => new Date(b.source_submitted_at).getTime() - new Date(a.source_submitted_at).getTime()
+          );
+        });
+        currentLength += data.length;
+      }
+    }
+    fetchRemaining();
+    return () => { isMounted = false; };
+  }, [totalCount, supabase]);
 
   useEffect(() => {
     setLeads(initialLeads);
@@ -223,14 +253,14 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
     const handleFocus = async () => {
       if (!leadsRef.current.length) return;
       const maxCreated = leadsRef.current.reduce(
-        (max, l) => (new Date(l.created_at) > new Date(max) ? l.created_at : max),
-        leadsRef.current[0]!.created_at
+        (max, l) => (new Date(l.source_submitted_at) > new Date(max) ? l.source_submitted_at : max),
+        leadsRef.current[0]!.source_submitted_at
       );
 
       const { data } = await supabase
         .from("leads")
-        .select("*")
-        .gt("created_at", maxCreated)
+        .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at")
+        .gt("source_submitted_at", maxCreated)
         .order("source_submitted_at", { ascending: false });
 
       if (data && data.length > 0) {
@@ -348,21 +378,17 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
     return filtered.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
   }, [filtered, safeCurrentPage, pageSize]);
 
-  const totalCount = filtered.length;
-  const newCount = filtered.filter((l) => !l.viewed_at).length;
-  const viewedCount = totalCount - newCount;
+  // Use precomputed DB KPIs for initial total counts
+  const kpiTotal = kpiCounts?.total_count || totalCount;
+  const kpiNew = kpiCounts?.new_count || 0;
+  const kpiViewed = kpiCounts?.viewed_count || 0;
 
-  // Daily intake metrics (Today in 7 PM - 7 PM IST Business Day window)
-  // Dynamic KPI metrics matching the active date window
+  const googleCount = kpiCounts?.google_count || 0;
+  const metaCount = kpiCounts?.meta_count || 0;
+  const acresCount = kpiCounts?.acres_count || 0;
+  const mbCount = kpiCounts?.mb_count || 0;
+
   const dateLabel = getDatePresetLabel(datePreset, customFrom, customTo);
-  const kpiTotal = filtered.length;
-  const kpiNew = filtered.filter((l) => !l.viewed_at).length;
-  const kpiViewed = kpiTotal - kpiNew;
-
-  const googleCount = filtered.filter((l) => l.source === "google_ads").length;
-  const metaCount = filtered.filter((l) => l.source === "meta_ads").length;
-  const acresCount = filtered.filter((l) => l.source === "99acres").length;
-  const mbCount = filtered.filter((l) => l.source === "magicbricks").length;
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -491,7 +517,7 @@ export function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
             New
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${view === "new" ? "bg-white/60" : "bg-canvas border border-line"}`}>{newCount}</span>
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${view === "new" ? "bg-white/60" : "bg-canvas border border-line"}`}>{kpiNew}</span>
           </button>
 
           <div className="w-px h-5 bg-line mx-1" />

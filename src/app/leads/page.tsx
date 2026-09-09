@@ -23,12 +23,31 @@ export default async function LeadsPage() {
   // this ever renders, but we guard again here since this is also where
   // the actual data fetch happens and RLS is the real boundary, not this
   // check.
-  const { data, error } = await supabase
+  
+  const leadsQuery = supabase
     .from("leads")
-    .select("*")
-    .order("source_submitted_at", { ascending: false });
+    .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at")
+    .order("source_submitted_at", { ascending: false })
+    .range(0, 49);
 
-  const rawLeads = (data ?? []);
+  const kpisQuery = supabase.rpc("get_lead_kpis");
+
+  const [leadsResponse, kpisResponse] = await Promise.all([leadsQuery, kpisQuery]);
+  const { data, error } = leadsResponse;
+  
+  const kpiCounts = (kpisResponse.data as any) || {
+    total_count: 0,
+    new_count: 0,
+    viewed_count: 0,
+    google_count: 0,
+    meta_count: 0,
+    acres_count: 0,
+    mb_count: 0,
+  };
+  
+  const totalCount = kpiCounts.total_count || 0;
+
+  const rawLeads = (data ?? []) as any[];
   const leads: Lead[] = await Promise.all(
     rawLeads.map(async (lead) => {
       if (lead.source === "google_ads") {
@@ -78,7 +97,7 @@ export default async function LeadsPage() {
         {error ? (
           <p className="text-sm text-red-600">Could not load leads. Please refresh.</p>
         ) : (
-          <LeadsClient initialLeads={leads} />
+          <LeadsClient initialLeads={leads} kpiCounts={kpiCounts} totalCount={totalCount} />
         )}
       </main>
     </div>
