@@ -179,7 +179,7 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
       while (currentLength < targetTotal && isMounted) {
         const { data, error } = await supabase
           .from("leads")
-          .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at")
+          .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload")
           .order("source_submitted_at", { ascending: false })
           .range(currentLength, currentLength + 499);
           
@@ -260,7 +260,7 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
 
       const { data } = await supabase
         .from("leads")
-        .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at")
+        .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload")
         .gt("source_submitted_at", maxCreated)
         .order("source_submitted_at", { ascending: false });
 
@@ -523,6 +523,7 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
             New
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${view === "new" ? "bg-white/60" : "bg-canvas border border-line"}`}>{kpiNew}</span>
             <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${view === "new" ? "bg-white/60" : "bg-canvas border border-line"}`}>{newCount}</span>
           </button>
 
