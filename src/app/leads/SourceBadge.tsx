@@ -72,16 +72,9 @@ export function SourceBadge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm ${className}`}
-      title="Source: Google Ads"
       className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 border border-gray-200 shadow-sm ${className}`}
       title={`Source: ${label}`}
     >
-      {/* Google Ads icon symbol */}
-      <svg className="w-3 h-3 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z" />
-      </svg>
-      <span>Google Ads</span>
       <span className="w-2 h-2 rounded-full bg-gray-600 shrink-0" aria-hidden />
       <span>{label}</span>
     </span>
