@@ -350,19 +350,43 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
   }, [source, campaign, availableCampaigns]);
 
   const filtered = useMemo(() => {
-    let result = leads.filter((lead) => {
-      if (view === "new" && lead.viewed_at) return false;
-      if (source !== "all" && lead.source !== source) return false;
-      if (campaign !== "all" && lead.campaign_name !== campaign) return false;
-      if (adGroup !== "all" && lead.ad_group_name !== adGroup) return false;
-      if (budget !== "all" && lead.budget_range !== budget) return false;
-      if (bhk !== "all" && lead.bhk_configuration !== bhk) return false;
-      if (planning !== "all" && lead.planning_timeline !== planning) return false;
-      if (!matchesDatePreset(lead.source_submitted_at, datePreset, customFrom, customTo)) return false;
-      if (!matchesSearch(lead, search)) return false;
+    const searchTerm = search.trim().toLowerCase();
 
-      return true;
-    });
+    let result: Lead[];
+
+    if (searchTerm.length > 0) {
+      result = leads.filter((lead) => {
+        const target = [
+          lead.full_name,
+          lead.phone_number,
+          lead.email,
+          lead.campaign_name,
+          lead.ad_group_name,
+          lead.ad_name,
+          lead.budget_range,
+          lead.bhk_configuration,
+          lead.planning_timeline,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return target.includes(searchTerm);
+      });
+    } else {
+      result = leads.filter((lead) => {
+        if (view === "new" && lead.viewed_at) return false;
+        if (source !== "all" && lead.source !== source) return false;
+        if (campaign !== "all" && lead.campaign_name !== campaign) return false;
+        if (adGroup !== "all" && lead.ad_group_name !== adGroup) return false;
+        if (budget !== "all" && lead.budget_range !== budget) return false;
+        if (bhk !== "all" && lead.bhk_configuration !== bhk) return false;
+        if (planning !== "all" && lead.planning_timeline !== planning) return false;
+        if (!matchesDatePreset(lead.source_submitted_at, datePreset, customFrom, customTo)) return false;
+
+        return true;
+      });
+    }
 
     result = result.slice().sort((a, b) => {
       let cmp = 0;
