@@ -1,10 +1,13 @@
 import type { User } from "@supabase/supabase-js";
 
 export type AppRole = "admin" | "staff";
+export type AppRole = "admin" | "staff" | "sales";
 export type AuthUser = Pick<User, "app_metadata">;
 
 export function getAppRole(user: AuthUser | null): AppRole {
   return user?.app_metadata?.role === "admin" ? "admin" : "staff";
+  const role = user?.app_metadata?.role;
+  return role === "admin" ? "admin" : role === "sales" ? "sales" : "staff";
 }
 
 export function isAdmin(user: AuthUser | null): boolean {

@@ -39,11 +39,13 @@ export function validateUserInput(input: CreateUserInput, passwordRequired = tru
     return "Password must be at least 8 characters.";
   }
   if (input.role !== "admin" && input.role !== "staff") return "Select a valid role.";
+  if (input.role !== "admin" && input.role !== "staff" && input.role !== "sales") return "Select a valid role.";
   return null;
 }
 
 export function validateRole(value: string): AppRole | null {
   return value === "admin" || value === "staff" ? value : null;
+  return value === "admin" || value === "staff" || value === "sales" ? (value as AppRole) : null;
 }
 
 export function buildCreateAttributes(input: CreateUserInput): AdminUserAttributes {

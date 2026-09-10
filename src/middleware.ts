@@ -54,6 +54,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  const role = user.app_metadata?.role;
+
+  if (role === "sales") {
+    if (pathname.startsWith("/leads") || pathname.startsWith("/users") || pathname.startsWith("/settings")) {
+      return NextResponse.redirect(new URL("/sales", request.url));
+    }
+  }
+
   return response;
 }
 
