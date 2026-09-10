@@ -24,4 +24,10 @@ export interface Lead extends NormalizedLead {
   id: string;
   created_at: string;
   viewed_at: string | null;
+  assigned_to?: string | null;
+  assigned_at?: string | null;
+  lead_status?: string | null;
+  disposition?: string | null;
+  disposition_details?: string | null;
+  next_follow_up?: string | null;
 }

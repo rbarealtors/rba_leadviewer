@@ -127,6 +127,7 @@ function UserFields({ user, includePassword }: { user?: ManagedUser; includePass
         <span className="block text-xs font-medium text-subtle mb-1">Role</span>
         <select name="role" defaultValue={user?.roleValue ?? "staff"} className="w-full rounded-md border border-line px-3 py-2 text-sm bg-panel outline-none focus:border-accent" required>
           <option value="staff">Staff</option>
+          <option value="sales">Sales</option>
           <option value="admin">Admin</option>
         </select>
       </label>

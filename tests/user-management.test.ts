@@ -43,7 +43,7 @@ const validInput: CreateUserInput = {
 };
 
 describe("user management mutations", () => {
-  it.each(["staff", "admin"] as const)("creates a valid %s user with fixed metadata", async (role) => {
+  it.each(["staff", "admin", "sales"] as const)("creates a valid %s user with fixed metadata", async (role) => {
     const admin = successfulAdmin();
     const input = { ...validInput, role };
 
@@ -58,7 +58,8 @@ describe("user management mutations", () => {
 
     expect((await createUserWithAdmin(admin, { ...validInput, email: "bad" })).error).toBe("Enter a valid email address.");
     expect((await createUserWithAdmin(admin, { ...validInput, name: " " })).error).toBe("Name is required.");
-    expect(validateRole("owner")).toBeNull();
+    expect(validateRole("owner")).toBe(false);
+    expect(validateRole("sales")).toBe(true);
     expect(admin.createUser).not.toHaveBeenCalled();
   });
 

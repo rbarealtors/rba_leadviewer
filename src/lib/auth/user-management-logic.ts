@@ -4,7 +4,8 @@ import type {
   User,
 } from "@supabase/supabase-js";
 import { listAllAuthUsers } from "./user-list";
-import { getAppRole, type AppRole } from "./authorization";
+import { getAppRole, VALID_ROLES, type AppRole } from "./authorization";
+export { VALID_ROLES, type AppRole };
 
 export const MIN_PASSWORD_LENGTH = 8;
 
@@ -29,6 +30,10 @@ export type UpdateUserInput = CreateUserInput & { userId: string };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export function validateRole(role: unknown): role is AppRole {
+  return typeof role === "string" && VALID_ROLES.includes(role.trim().toLowerCase() as AppRole);
+}
+
 export function validateUserInput(input: CreateUserInput, passwordRequired = true): string | null {
   if (!input.name.trim()) return "Name is required.";
   if (!EMAIL_PATTERN.test(input.email.trim())) return "Enter a valid email address.";
@@ -38,32 +43,31 @@ export function validateUserInput(input: CreateUserInput, passwordRequired = tru
   if (!passwordRequired && input.password && input.password.length < MIN_PASSWORD_LENGTH) {
     return "Password must be at least 8 characters.";
   }
-  if (input.role !== "admin" && input.role !== "staff") return "Select a valid role.";
-  if (input.role !== "admin" && input.role !== "staff" && input.role !== "sales") return "Select a valid role.";
+  const normalizedRole = String(input.role || "").trim().toLowerCase();
+  if (!VALID_ROLES.includes(normalizedRole as AppRole)) {
+    return "Select a valid role.";
+  }
   return null;
 }
 
-export function validateRole(value: string): AppRole | null {
-  return value === "admin" || value === "staff" ? value : null;
-  return value === "admin" || value === "staff" || value === "sales" ? (value as AppRole) : null;
-}
-
 export function buildCreateAttributes(input: CreateUserInput): AdminUserAttributes {
+  const normalizedRole = (String(input.role || "").trim().toLowerCase() as AppRole) || input.role;
   return {
     email: input.email.trim(),
     password: input.password,
     email_confirm: true,
     user_metadata: { full_name: input.name.trim() },
-    app_metadata: { role: input.role },
+    app_metadata: { role: normalizedRole },
   };
 }
 
 export function buildUpdateAttributes(input: UpdateUserInput): AdminUserAttributes {
+  const normalizedRole = (String(input.role || "").trim().toLowerCase() as AppRole) || input.role;
   const attributes: AdminUserAttributes = {
     email: input.email.trim(),
     email_confirm: true,
     user_metadata: { full_name: input.name.trim() },
-    app_metadata: { role: input.role },
+    app_metadata: { role: normalizedRole },
   };
 
   if (input.password) attributes.password = input.password;

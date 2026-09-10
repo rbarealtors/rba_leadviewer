@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { SalesClient } from "./SalesClient";
+import { SalesFeed } from "@/components/sales/SalesFeed";
 import type { Lead } from "@/lib/leads/types";
+import { cookies } from "next/headers";
+import PINEntryScreenClientWrapper from "./PINEntryScreenClientWrapper";
 
 export default async function SalesPage() {
   const supabase = await createSupabaseServerClient();
@@ -8,6 +10,14 @@ export default async function SalesPage() {
 
   if (!user) {
     return null; // Handled by middleware
+  }
+
+  const role = user.app_metadata?.role;
+  const cookieStore = await cookies();
+  const isPinVerified = cookieStore.has("sales_pin_verified");
+
+  if (role === "sales" && !isPinVerified) {
+    return <PINEntryScreenClientWrapper />;
   }
 
   // Fetch initial leads assigned to auth.uid() where lead_status != 'closed', ordered by assigned_at desc
@@ -26,8 +36,7 @@ export default async function SalesPage() {
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col relative">
-      <SalesClient initialLeads={initialLeads} userName={user.user_metadata?.full_name || "Sales Rep"} />
+      <SalesFeed initialLeads={initialLeads} userName={user.user_metadata?.full_name || "Sales Rep"} />
     </div>
   );
 }
-

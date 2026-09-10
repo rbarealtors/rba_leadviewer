@@ -26,7 +26,7 @@ export default async function LeadsPage() {
   const query = supabase
     .from("leads")
     .select(
-      "id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload"
+      "id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload, assigned_to, assigned_at, lead_status, disposition, disposition_details, next_follow_up"
     )
     .order("source_submitted_at", { ascending: false })
     .range(0, 49);

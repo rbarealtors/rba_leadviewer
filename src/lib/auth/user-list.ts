@@ -9,8 +9,6 @@ export type ManagedUser = {
   id: string;
   name: string;
   email: string;
-  role: "Admin" | "Staff";
-  roleValue: "admin" | "staff";
   role: "Admin" | "Staff" | "Sales";
   roleValue: "admin" | "staff" | "sales";
   created: string;
@@ -49,7 +47,6 @@ export function mapAuthUser(user: User): ManagedUser {
     id: user.id,
     name,
     email: user.email ?? DASH,
-    role: getAppRole(user) === "admin" ? "Admin" : "Staff",
     role: getAppRole(user) === "admin" ? "Admin" : getAppRole(user) === "sales" ? "Sales" : "Staff",
     roleValue: getAppRole(user),
     created: formatIST(user.created_at),

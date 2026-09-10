@@ -45,3 +45,29 @@ export async function submitLeadDisposition(
   return { error: null };
 }
 
+export async function fetchSalesReps(): Promise<{ id: string; name: string }[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return [];
+  }
+
+  const { createSupabaseAdminClient } = await import("@/lib/supabase/admin");
+  const adminClient = createSupabaseAdminClient();
+  
+  const { data, error } = await adminClient.auth.admin.listUsers();
+  
+  if (error) {
+    console.error("Error fetching sales reps:", error);
+    return [];
+  }
+
+  return data.users
+    .filter(u => u.app_metadata?.role === "sales" && u.id !== user.id)
+    .map(u => ({
+      id: u.id,
+      name: u.user_metadata?.full_name || u.email || "Unknown Agent"
+    }));
+}
+

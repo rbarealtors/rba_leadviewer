@@ -11,15 +11,17 @@ import { SourceBadge } from "./SourceBadge";
 import { PhoneCell } from "./PhoneCell";
 import { LeadDetailDrawer } from "./LeadDetailDrawer";
 import { AddLeadDrawer } from "@/components/leads/AddLeadDrawer";
+import { getSalesTeam, assignLead, type SalesRep } from "./assignment-actions";
 
-type ColumnKey = "time" | "source" | "name" | "phone" | "campaign" | "status";
+type ColumnKey = "time" | "source" | "name" | "phone" | "campaign" | "assigned" | "status";
 
 const DEFAULT_COL_WIDTHS: Record<ColumnKey, number> = {
   time: 160,
   source: 125,
   name: 185,
-  phone: 210,
-  campaign: 300,
+  phone: 190,
+  campaign: 250,
+  assigned: 150,
   status: 125,
 };
 
@@ -29,6 +31,7 @@ const MIN_COL_WIDTHS: Record<ColumnKey, number> = {
   name: 120,
   phone: 160,
   campaign: 160,
+  assigned: 120,
   status: 100,
 };
 
@@ -165,7 +168,8 @@ function playChime() {
 
 interface LeadToast {
   id: string;
-  lead: Lead;
+  lead?: Lead;
+  message?: string;
 }
 
 export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalCount }: { initialLeads: Lead[], kpiCounts: any, totalCount: number }) {
@@ -174,6 +178,13 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
   const leadsRef = useRef<Lead[]>(initialLeads);
   const [highlightedRows, setHighlightedRows] = useState<Set<string>>(new Set());
   const [toasts, setToasts] = useState<LeadToast[]>([]);
+  const [salesTeam, setSalesTeam] = useState<SalesRep[]>([]);
+
+  useEffect(() => {
+    getSalesTeam().then(({ data }) => {
+      if (data) setSalesTeam(data);
+    });
+  }, []);
 
   // Background fetch remaining leads to support client-side filtering without hitting worker limits
   useEffect(() => {
@@ -186,7 +197,7 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
       while (currentLength < targetTotal && isMounted) {
         const { data, error } = await supabase
           .from("leads")
-          .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload")
+          .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload, assigned_to, assigned_at, lead_status, disposition, disposition_details, next_follow_up")
           .order("source_submitted_at", { ascending: false })
           .range(currentLength, currentLength + 499);
           
@@ -275,7 +286,7 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
 
       const { data } = await supabase
         .from("leads")
-        .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload")
+        .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload, assigned_to, assigned_at, lead_status, disposition, disposition_details, next_follow_up")
         .gt("source_submitted_at", maxCreated)
         .order("source_submitted_at", { ascending: false });
 
@@ -526,6 +537,35 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
     }
   }
 
+  async function handleAssignLead(leadId: string, userId: string | null): Promise<{ error: string | null }> {
+    const now = new Date().toISOString();
+    
+    // Optimistic update
+    setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, assigned_to: userId, assigned_at: userId ? now : null, lead_status: userId ? "Assigned" : null } : l)));
+    setSelectedLead((prev) => prev && prev.id === leadId ? { ...prev, assigned_to: userId, assigned_at: userId ? now : null, lead_status: userId ? "Assigned" : null } : prev);
+
+    const rep = salesTeam.find((r) => r.id === userId);
+    const toastMessage = userId
+      ? `Lead assigned to ${rep?.full_name || rep?.email || "Agent"}`
+      : "Lead set to Unassigned";
+
+    const toastId = `assign-${leadId}-${Date.now()}`;
+    setToasts((prev) => [{ id: toastId, message: toastMessage }, ...prev].slice(0, 3));
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== toastId));
+    }, 4000);
+
+    startTransition(async () => {
+      const { error } = await assignLead(leadId, userId);
+      if (error) {
+        console.error("Assignment failed", error);
+      }
+    });
+
+    return { error: null };
+  }
+
+
   return (
     <div className="space-y-4">
       <FiltersBar
@@ -728,6 +768,8 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
         <>
           <LeadsTable
             leads={paginatedLeads}
+            salesTeam={salesTeam}
+            onAssignLead={handleAssignLead}
             selectedLeadId={selectedLead?.id}
             sortKey={sortKey}
             sortDir={sortDir}
@@ -757,9 +799,11 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
       {/* Slide-over Detail Drawer */}
       <LeadDetailDrawer
         lead={selectedLead}
+        salesTeam={salesTeam}
         onClose={() => setSelectedLead(null)}
         onToggleViewed={handleToggleViewed}
         onRename={handleRenameLead}
+        onAssign={handleAssignLead}
       />
 
       {/* Floating Toast Notification Stack */}
@@ -770,8 +814,41 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
           className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"
         >
           {toasts.map((toast) => {
-            const cleanPhone = toast.lead.phone_number
-              ? toast.lead.phone_number.replace(/^p:/i, "").trim()
+            if (toast.message) {
+              return (
+                <div
+                  key={toast.id}
+                  className="pointer-events-auto bg-white border border-emerald-200 shadow-xl rounded-xl p-3 flex items-center justify-between gap-3 transition-all transform duration-300 w-80 text-gray-900"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-xs font-semibold text-gray-800 truncate">{toast.message}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDismissToast(toast.id)}
+                    className="text-gray-400 hover:text-gray-600 rounded p-1 hover:bg-gray-100 transition-colors cursor-pointer shrink-0"
+                    title="Dismiss"
+                    aria-label="Dismiss notification"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+              );
+            }
+
+            const lead = toast.lead;
+            if (!lead) return null;
+
+            const cleanPhone = lead.phone_number
+              ? lead.phone_number.replace(/^p:/i, "").trim()
               : "";
             const waPhone = cleanPhone.replace(/[^0-9]/g, "");
             const waUrl = waPhone ? `https://wa.me/${waPhone}` : null;
@@ -818,16 +895,16 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-semibold text-gray-900 truncate">
-                      {toast.lead.full_name || "New Prospect"}
+                      {lead.full_name || "New Prospect"}
                     </span>
-                    <SourceBadge source={toast.lead.source} />
+                    <SourceBadge source={lead.source} />
                   </div>
                   {cleanPhone ? (
                     <span className="text-xs text-gray-600 font-mono">{cleanPhone}</span>
                   ) : null}
-                  {toast.lead.campaign_name ? (
+                  {lead.campaign_name ? (
                     <span className="text-xs text-gray-500 truncate max-w-[180px]">
-                      🎯 {toast.lead.campaign_name}
+                      🎯 {lead.campaign_name}
                     </span>
                   ) : null}
                 </div>
@@ -836,7 +913,7 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
                 <div className="flex items-center gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={() => handleToastView(toast.lead, toast.id)}
+                    onClick={() => handleToastView(lead, toast.id)}
                     className="flex-1 py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-lg shadow-sm text-center transition-colors cursor-pointer"
                   >
                     View Lead
@@ -881,6 +958,8 @@ function EmptyState({ title, subtitle }: { title: string; subtitle?: string }) {
 
 function LeadsTable({
   leads,
+  salesTeam,
+  onAssignLead,
   selectedLeadId,
   sortKey,
   sortDir,
@@ -892,6 +971,8 @@ function LeadsTable({
   setSelectedIds,
 }: {
   leads: Lead[];
+  salesTeam: SalesRep[];
+  onAssignLead: (leadId: string, repId: string | null) => Promise<void | { error: string | null }>;
   selectedLeadId?: string;
   sortKey: SortKey;
   sortDir: "asc" | "desc";
@@ -943,6 +1024,7 @@ function LeadsTable({
     colWidths.name +
     colWidths.phone +
     colWidths.campaign +
+    colWidths.assigned +
     colWidths.status;
 
   function toggleAll() {
@@ -984,6 +1066,7 @@ function LeadsTable({
           <col style={{ width: `${colWidths.name}px` }} />
           <col style={{ width: `${colWidths.phone}px` }} />
           <col style={{ width: `${colWidths.campaign}px` }} />
+          <col style={{ width: `${colWidths.assigned}px` }} />
           <col style={{ width: `${colWidths.status}px` }} />
         </colgroup>
         <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_#e5e7eb]">
@@ -1030,6 +1113,14 @@ function LeadsTable({
               onReset={() => handleResetColumn("campaign")}
             >
               Campaign
+            </ResizableTh>
+            <ResizableTh
+              width={colWidths.assigned}
+              minWidth={MIN_COL_WIDTHS.assigned}
+              onResize={(w) => handleResizeColumn("assigned", w)}
+              onReset={() => handleResetColumn("assigned")}
+            >
+              Assigned
             </ResizableTh>
             <ResizableTh
               width={colWidths.status}
@@ -1150,6 +1241,37 @@ function LeadsTable({
                           </span>
                         ))}
                       </div>
+                    )}
+                  </div>
+                </Td>
+
+                {/* Assigned To */}
+                <Td className="overflow-hidden" onClick={(e: any) => e.stopPropagation()}>
+                  <div className="flex flex-col gap-1">
+                    <select
+                      value={lead.assigned_to || ""}
+                      onChange={(e) => {
+                        e.stopPropagation(); // Prevent opening the lead detail drawer
+                        const newRepId = e.target.value || null;
+                        void onAssignLead(lead.id, newRepId);
+                      }}
+                      className={`text-xs rounded-lg border px-2.5 py-1 shadow-xs focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 cursor-pointer transition-colors w-full truncate ${
+                        lead.assigned_to
+                          ? "border-emerald-200 text-emerald-800 bg-emerald-50/60 font-semibold hover:bg-emerald-100/60"
+                          : "border-gray-200 text-gray-500 bg-gray-50/50 font-normal hover:bg-gray-100/70"
+                      }`}
+                    >
+                      <option value="">Unassigned</option>
+                      {salesTeam.map((rep) => (
+                        <option key={rep.id} value={rep.id}>
+                          {rep.full_name || rep.email}
+                        </option>
+                      ))}
+                    </select>
+                    {lead.assigned_to && lead.assigned_at && (
+                      <span className="text-[10px] text-subtle truncate pl-0.5" suppressHydrationWarning>
+                        {formatIST(lead.assigned_at)}
+                      </span>
                     )}
                   </div>
                 </Td>

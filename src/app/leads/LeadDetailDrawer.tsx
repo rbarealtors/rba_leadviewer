@@ -6,17 +6,22 @@ import { formatIST } from "@/lib/time";
 import { formatCampaignName, sanitizePhoneForCopy, buildWhatsAppUrl } from "@/lib/leads/formatters";
 import { SourceBadge } from "./SourceBadge";
 import { CopyButton } from "@/app/components/CopyButton";
+import type { SalesRep } from "./assignment-actions";
 
 export function LeadDetailDrawer({
   lead,
+  salesTeam,
   onClose,
   onToggleViewed,
   onRename,
+  onAssign,
 }: {
   lead: Lead | null;
+  salesTeam: SalesRep[];
   onClose: () => void;
   onToggleViewed: (lead: Lead) => void;
   onRename: (leadId: string, fullName: string) => Promise<{ error: string | null }>;
+  onAssign: (leadId: string, userId: string | null) => Promise<{ error: string | null }>;
 }) {
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [copiedPayload, setCopiedPayload] = useState(false);
@@ -216,6 +221,45 @@ export function LeadDetailDrawer({
               />
             </svg>
           </button>
+        </div>
+
+        {/* Assignment Section */}
+        <div className="px-6 py-3 bg-canvas/30 border-b border-line flex items-center justify-between gap-4">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-subtle">Assigned To</span>
+            <div className="flex items-center gap-2 mt-0.5">
+              {lead.assigned_to ? (
+                <>
+                  <span className="text-sm font-medium text-ink">
+                    {salesTeam.find(r => r.id === lead.assigned_to)?.full_name || "Unknown Rep"}
+                  </span>
+                  {lead.assigned_at && (
+                    <span className="text-xs text-subtle" suppressHydrationWarning>
+                      {formatIST(lead.assigned_at)}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-panel border border-line text-subtle">
+                  Unassigned
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex-shrink-0">
+            <select
+              value={lead.assigned_to || ""}
+              onChange={(e) => onAssign(lead.id, e.target.value || null)}
+              className="text-xs border border-line rounded-md bg-panel px-2 py-1.5 text-ink focus:border-accent focus:ring-1 focus:ring-accent outline-none cursor-pointer"
+            >
+              <option value="">Unassigned</option>
+              {salesTeam.map((rep) => (
+                <option key={rep.id} value={rep.id}>
+                  {rep.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Quick Action Toolbar */}

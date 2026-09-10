@@ -49,8 +49,8 @@ export async function deleteUserAction(formData: FormData): Promise<UserActionRe
 }
 
 function parseCreateInput(formData: FormData): CreateUserInput | string {
-  const role = validateRole(String(formData.get("role") ?? ""));
-  if (!role) return "Select a valid role.";
+  const role = String(formData.get("role") ?? "").trim().toLowerCase();
+  if (!validateRole(role)) return "Select a valid role.";
 
   return {
     name: String(formData.get("name") ?? ""),
