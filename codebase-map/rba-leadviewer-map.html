@@ -1,0 +1,1013 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codebase Map</title>
+<style>
+/* ============ theme (validated palette — see dataviz references) ============ */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --surface-2: #f2f1ed;
+  --ink-1: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #898781;
+  --hairline: #e1e0d9;
+  --baseline: #c3c2b7;
+  --ring: rgba(11,11,11,0.10);
+  --grid-dot: #dddcd4;
+  --slot-1: #2a78d6; --slot-2: #1baf7a; --slot-3: #eda100; --slot-4: #008300;
+  --slot-5: #4a3aa7; --slot-6: #e34948; --slot-7: #e87ba4; --slot-8: #eb6834;
+  --c-other: #a5a39b;
+  --hatch: rgba(11,11,11,0.20);
+  --font-mono: ui-monospace, "SF Mono", Menlo, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface-1: #1a1a19;
+    --surface-2: #232322;
+    --ink-1: #ffffff;
+    --ink-2: #c3c2b7;
+    --ink-3: #898781;
+    --hairline: #2c2c2a;
+    --baseline: #383835;
+    --ring: rgba(255,255,255,0.10);
+    --grid-dot: #262624;
+    --slot-1: #3987e5; --slot-2: #199e70; --slot-3: #c98500; --slot-4: #008300;
+    --slot-5: #9085e9; --slot-6: #e66767; --slot-7: #d55181; --slot-8: #d95926;
+    --c-other: #6b6a64;
+    --hatch: rgba(255,255,255,0.22);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface-1: #1a1a19;
+  --surface-2: #232322;
+  --ink-1: #ffffff;
+  --ink-2: #c3c2b7;
+  --ink-3: #898781;
+  --hairline: #2c2c2a;
+  --baseline: #383835;
+  --ring: rgba(255,255,255,0.10);
+  --grid-dot: #262624;
+  --slot-1: #3987e5; --slot-2: #199e70; --slot-3: #c98500; --slot-4: #008300;
+  --slot-5: #9085e9; --slot-6: #e66767; --slot-7: #d55181; --slot-8: #d95926;
+  --c-other: #6b6a64;
+  --hatch: rgba(255,255,255,0.22);
+}
+
+/* ============ base ============ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--page);
+  color: var(--ink-1);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1480px; margin: 0 auto; padding: 0 28px; }
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+
+/* ============ header ============ */
+header.site { border-bottom: 1px solid var(--hairline); background: var(--surface-1); position: relative; }
+header.site::after {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
+  background-size: 22px 22px;
+  opacity: .5;
+  pointer-events: none;
+}
+.masthead { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 30px 0 22px; position: relative; z-index: 1; flex-wrap: wrap; }
+.masthead h1 { font-family: var(--font-mono); font-size: clamp(24px, 3.4vw, 38px); font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; margin-top: 8px; }
+.masthead h1 .dim { color: var(--ink-3); font-weight: 450; }
+.meta-right { text-align: right; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.meta-right .snapshot { font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); }
+.theme-btn { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--hairline); border-radius: 999px; padding: 4px 12px; color: var(--ink-2); background: var(--surface-1); }
+.theme-btn:hover { border-color: var(--baseline); color: var(--ink-1); }
+
+.stats { display: grid; grid-template-columns: repeat(6, 1fr); position: relative; z-index: 1; border-top: 1px solid var(--hairline); }
+.stat { padding: 14px 18px 16px 18px; border-left: 1px solid var(--hairline); }
+.stat:first-child { border-left: none; padding-left: 0; }
+.stat .v { font-family: var(--font-mono); font-size: 26px; font-weight: 620; letter-spacing: -0.02em; line-height: 1.15; }
+.stat .l { font-size: 11px; color: var(--ink-2); margin-top: 2px; }
+.stat .s { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); margin-top: 1px; }
+@media (max-width: 980px) { .stats { grid-template-columns: repeat(3, 1fr); } .stat:nth-child(4) { border-left: none; padding-left: 0; } }
+
+nav.tabs { display: flex; gap: 2px; position: relative; z-index: 1; overflow-x: auto; }
+nav.tabs button { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); padding: 12px 16px 10px; border-bottom: 2px solid transparent; white-space: nowrap; }
+nav.tabs button:hover { color: var(--ink-1); }
+nav.tabs button[aria-selected="true"] { color: var(--ink-1); border-bottom-color: var(--ink-1); }
+
+/* ============ views ============ */
+main { padding: 26px 0 60px; }
+section.view { display: none; }
+section.view.active { display: block; animation: viewin .25s ease; }
+@keyframes viewin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.view-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+.view-head h2 { font-family: var(--font-mono); font-size: 15px; font-weight: 600; }
+.view-head .sub { font-size: 12.5px; color: var(--ink-2); }
+
+/* ============ architecture ============ */
+.arch-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
+@media (max-width: 1100px) { .arch-layout { grid-template-columns: 1fr; } }
+.graph-card { background: var(--surface-1); border: 1px solid var(--hairline); border-radius: 10px; overflow-x: auto; }
+#graph { position: relative; min-width: 860px; background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px); background-size: 22px 22px; }
+#graph svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+#graph svg path { fill: none; stroke: var(--baseline); stroke-width: 1; opacity: .28; transition: opacity .15s, stroke .15s; }
+#graph.focused svg path { opacity: .05; }
+#graph.focused svg path.is-imports { stroke: var(--slot-1); stroke-width: 1.6; opacity: .95; }
+#graph.focused svg path.is-imported { stroke: var(--slot-8); stroke-width: 1.6; opacity: .95; }
+.gnode { position: absolute; background: var(--surface-1); border: 1px solid var(--hairline); border-radius: 7px; box-shadow: 0 1px 2px var(--ring); padding: 6px 10px 6px 13px; cursor: pointer; transition: opacity .15s, border-color .15s, transform .1s; user-select: none; }
+.gnode::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 7px 0 0 7px; background: var(--kc, var(--c-other)); }
+.gnode.testpkg { border-style: dashed; }
+.gnode.testpkg::before { background: var(--c-other); }
+.gnode:hover { border-color: var(--baseline); transform: translateY(-1px); }
+.gnode.selected { border-color: var(--ink-1); box-shadow: 0 0 0 1px var(--ink-1), 0 2px 8px var(--ring); }
+#graph.focused .gnode.dimmed { opacity: .3; }
+.gnode .gname { display: block; font-family: var(--font-mono); font-size: 12.5px; font-weight: 620; line-height: 1.3; }
+.gnode .gmeta { display: block; font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-3); line-height: 1.4; }
+.row-label { position: absolute; left: 10px; font-family: var(--font-mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); opacity: .8; user-select: none; }
+.graph-legend { display: flex; gap: 18px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid var(--hairline); font-size: 11px; color: var(--ink-2); position: sticky; left: 0; }
+.graph-legend .li { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 14px; height: 8px; border-radius: 2px; display: inline-block; }
+.sw.line { height: 2px; border-radius: 1px; }
+.sw.dashed { border: 1px dashed var(--ink-3); background: transparent; height: 10px; }
+.tooling-strip { margin-top: 14px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tooling-strip .chip { font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); border: 1px solid var(--hairline); border-radius: 999px; padding: 2px 10px; background: var(--surface-1); cursor: default; }
+.tooling-strip .chip:hover { border-color: var(--baseline); color: var(--ink-1); }
+
+.panel { background: var(--surface-1); border: 1px solid var(--hairline); border-radius: 10px; padding: 18px 18px 20px; position: sticky; top: 16px; max-height: calc(100vh - 40px); overflow-y: auto; }
+.panel h3 { font-family: var(--font-mono); font-size: 17px; font-weight: 650; margin: 3px 0 2px; overflow-wrap: anywhere; }
+.panel .badges { display: flex; gap: 6px; margin: 6px 0 10px; flex-wrap: wrap; }
+.badge { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--hairline); color: var(--ink-2); }
+.badge.kind { border-color: var(--kc); color: var(--kc); }
+.panel p.purpose { font-size: 13px; color: var(--ink-1); }
+.panel .runtime { font-size: 12px; color: var(--ink-2); margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--hairline); }
+.panel .pstats { display: flex; margin: 12px 0; border: 1px solid var(--hairline); border-radius: 8px; overflow: hidden; }
+.panel .pstats div { flex: 1; padding: 8px 10px; border-left: 1px solid var(--hairline); }
+.panel .pstats div:first-child { border-left: none; }
+.panel .pstats .v { font-family: var(--font-mono); font-size: 15px; font-weight: 620; }
+.panel .pstats .l { font-size: 9.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; }
+.panel h4 { font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); margin: 16px 0 6px; }
+.panel ul.areas { list-style: none; }
+.panel ul.areas li { font-size: 12px; color: var(--ink-2); padding: 5px 0 5px 14px; border-left: 2px solid var(--hairline); margin-bottom: 4px; }
+.panel ul.areas li b { font-family: var(--font-mono); font-weight: 620; color: var(--ink-1); font-size: 11.5px; }
+.dep-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.dep-chips button { font-family: var(--font-mono); font-size: 11px; padding: 2px 9px; border: 1px solid var(--hairline); border-radius: 999px; color: var(--ink-2); background: var(--surface-1); }
+.dep-chips button:hover { border-color: var(--slot-1); color: var(--slot-1); }
+.dep-chips.rev button:hover { border-color: var(--slot-8); color: var(--slot-8); }
+.explore-btn { margin-top: 16px; width: 100%; font-family: var(--font-mono); font-size: 12px; font-weight: 600; padding: 9px 12px; border-radius: 8px; background: var(--ink-1); color: var(--page); transition: transform .1s; }
+.explore-btn:hover { transform: translateY(-1px); }
+.flow-steps { list-style: none; counter-reset: fs; }
+.flow-steps li { counter-increment: fs; position: relative; padding: 6px 0 6px 34px; font-size: 12.5px; color: var(--ink-2); }
+.flow-steps li b { color: var(--ink-1); font-family: var(--font-mono); font-size: 12px; }
+.flow-steps li::before { content: counter(fs, decimal-leading-zero); position: absolute; left: 0; top: 8px; font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); border: 1px solid var(--hairline); border-radius: 4px; padding: 0 4px; }
+details.story { margin-top: 14px; }
+details.story summary { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); cursor: pointer; text-transform: uppercase; letter-spacing: .1em; }
+details.story p { font-size: 12px; color: var(--ink-2); margin-top: 8px; }
+
+/* ============ files / treemap ============ */
+.files-toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+.files-toolbar select { font-family: var(--font-mono); font-size: 12.5px; background: var(--surface-1); color: var(--ink-1); border: 1px solid var(--hairline); border-radius: 7px; padding: 6px 10px; max-width: 320px; }
+.crumbs { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 12px; }
+.crumbs button { color: var(--slot-1); padding: 2px 4px; border-radius: 4px; }
+.crumbs button:hover { background: var(--surface-2); }
+.crumbs .sep { color: var(--ink-3); }
+.crumbs .here { color: var(--ink-1); font-weight: 620; padding: 2px 4px; }
+.type-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-left: auto; font-size: 11px; color: var(--ink-2); }
+.type-legend .li { display: inline-flex; align-items: center; gap: 5px; cursor: default; }
+.type-legend .li:hover { color: var(--ink-1); }
+.files-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+@media (max-width: 1100px) { .files-layout { grid-template-columns: 1fr; } }
+#treemap { position: relative; height: clamp(480px, calc(100vh - 320px), 860px); background: var(--surface-1); border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; }
+.tm-cell { position: absolute; border-radius: 3px; overflow: hidden; }
+.tm-file.hatched { background-image: repeating-linear-gradient(45deg, var(--hatch) 0 2px, transparent 2px 7px); }
+.tm-file .lbl, .tm-dircell .lbl {
+  position: absolute; top: 2px; left: 3px; right: 3px;
+  font-family: var(--font-mono); font-size: 10px; line-height: 1.35;
+  color: var(--ink-1);
+  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
+  border-radius: 3px; padding: 0 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  width: fit-content; max-width: calc(100% - 6px);
+  pointer-events: none;
+}
+.tm-dircell { background: var(--surface-2); border: 1px solid var(--baseline); cursor: pointer; }
+.tm-dircell:hover { border-color: var(--ink-2); }
+.tm-group { position: absolute; border: 1px solid var(--baseline); border-radius: 4px; background: var(--surface-1); }
+.tm-group > .hd { position: absolute; top: 0; left: 0; right: 0; height: 17px; font-family: var(--font-mono); font-size: 10px; font-weight: 620; line-height: 17px; padding: 0 5px; color: var(--ink-2); background: var(--surface-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.tm-group > .hd:hover { color: var(--ink-1); background: color-mix(in srgb, var(--surface-2) 60%, var(--surface-1)); }
+.tm-group > .body { position: absolute; top: 17px; left: 0; right: 0; bottom: 0; }
+#treemap.type-focus .tm-file:not(.type-hit) { opacity: .18; }
+.tm-hint { position: absolute; inset: auto 8px 6px auto; font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-3); pointer-events: none; }
+.side-card { background: var(--surface-1); border: 1px solid var(--hairline); border-radius: 10px; padding: 16px 16px 18px; }
+.side-card + .side-card { margin-top: 14px; }
+.side-card h4 { font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
+.side-card .bigpath { font-family: var(--font-mono); font-size: 12.5px; font-weight: 620; overflow-wrap: anywhere; margin-bottom: 8px; }
+.kv { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-2); padding: 3px 0; }
+.kv b { font-family: var(--font-mono); color: var(--ink-1); font-weight: 620; }
+.typebar { display: flex; height: 12px; gap: 2px; border-radius: 3px; overflow: hidden; margin: 8px 0; }
+.typebar div { border-radius: 2px; min-width: 2px; }
+.typerow { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--ink-2); padding: 2px 0; }
+.typerow .sw { width: 10px; height: 10px; border-radius: 2px; }
+.typerow b { font-family: var(--font-mono); color: var(--ink-1); margin-left: auto; font-weight: 600; }
+.topfiles { list-style: none; }
+.topfiles li { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; border-top: 1px dashed var(--hairline); cursor: pointer; }
+.topfiles li:first-child { border-top: none; }
+.topfiles li:hover .fp { color: var(--slot-1); }
+.topfiles .fp { font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); overflow-wrap: anywhere; }
+.topfiles .fl { font-family: var(--font-mono); font-size: 11px; color: var(--ink-1); font-weight: 620; margin-left: auto; white-space: nowrap; }
+
+/* ============ facets ============ */
+.facet-grid { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+.facet-grid.cols-2 { grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); }
+@media (max-width: 1000px) { .facet-grid.cols-2 { grid-template-columns: 1fr; } }
+.facet-card { background: var(--surface-1); border: 1px solid var(--hairline); border-radius: 10px; padding: 16px 18px 18px; }
+.facet-card > h3 { font-family: var(--font-mono); font-size: 13px; font-weight: 650; margin-bottom: 2px; }
+.facet-card > .sub { font-size: 12px; color: var(--ink-2); margin-bottom: 12px; }
+.tiles-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; max-width: 900px; }
+@media (max-width: 800px) { .tiles-row { grid-template-columns: repeat(2, 1fr); } }
+.tile { background: var(--surface-1); border: 1px solid var(--hairline); border-radius: 10px; padding: 14px 16px; }
+.tile .v { font-family: var(--font-mono); font-size: 28px; font-weight: 640; letter-spacing: -0.02em; }
+.tile .l { font-size: 11.5px; color: var(--ink-2); }
+.tile .s { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); }
+.chart-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--ink-2); margin: 0 0 12px; }
+.chart-legend .li { display: inline-flex; align-items: center; gap: 5px; }
+.sortbar { display: flex; gap: 4px; margin-bottom: 10px; }
+.sortbar button { font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--hairline); color: var(--ink-3); }
+.sortbar button.on { border-color: var(--ink-1); color: var(--ink-1); }
+.rbar-list { padding: 2px 0; }
+.rbar { display: grid; grid-template-columns: 180px minmax(0,1fr) minmax(90px,auto); align-items: center; gap: 12px; padding: 5px 0; border-top: 1px dashed var(--hairline); }
+.rbar:first-child { border-top: none; }
+.rbar:hover { background: color-mix(in srgb, var(--surface-2) 50%, transparent); }
+.rbar .rn { font-family: var(--font-mono); font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rbar .track { display: flex; gap: 2px; height: 13px; }
+.rbar .track div { border-radius: 3px; min-width: 3px; }
+.rbar .vals { font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); text-align: right; white-space: nowrap; }
+.rbar .vals b { color: var(--ink-1); font-weight: 620; }
+.group-cols { columns: 3 300px; column-gap: 14px; }
+.db-group { break-inside: avoid; background: var(--surface-1); border: 1px solid var(--hairline); border-radius: 10px; padding: 13px 15px 14px; margin-bottom: 14px; }
+.db-group.accent { border-left: 3px solid var(--slot-1); }
+.db-group h4 { font-family: var(--font-mono); font-size: 11px; font-weight: 650; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: baseline; }
+.db-group h4 .cnt { color: var(--ink-3); font-weight: 400; font-size: 10px; }
+.tchips { display: flex; flex-wrap: wrap; gap: 4px; }
+.tchips span { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-2); background: var(--surface-2); border-radius: 5px; padding: 2px 7px; }
+.rt-tree details { margin-left: 14px; }
+.rt-tree > details { margin-left: 0; }
+.rt-tree summary { font-family: var(--font-mono); font-size: 12px; cursor: pointer; padding: 2px 0; color: var(--ink-1); list-style: none; display: flex; align-items: center; gap: 6px; }
+.rt-tree summary::before { content: "▸"; font-size: 9px; color: var(--ink-3); transition: transform .12s; }
+.rt-tree details[open] > summary::before { transform: rotate(90deg); }
+.rt-leaf { display: flex; align-items: center; gap: 7px; padding: 2px 0 2px 15px; margin-left: 14px; }
+.rt-tree > .rt-leaf { margin-left: 0; padding-left: 0; }
+.rt-badge { font-family: var(--font-mono); font-size: 8.5px; letter-spacing: .08em; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--bc, var(--ink-3)); color: var(--bc, var(--ink-3)); text-transform: uppercase; }
+.rt-leaf .p { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
+.job-list { list-style: none; }
+.job-list li { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px dashed var(--hairline); }
+.job-list li:first-child { border-top: none; }
+.job-list .jn { font-family: var(--font-mono); font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.job-list .jm { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
+.job-list .jbar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+.job-list .jbar div { height: 100%; background: var(--slot-5); border-radius: 2px; }
+.job-list li.muted .jn { color: var(--ink-3); font-weight: 450; }
+.job-list li.muted .jbar div { background: var(--c-other); }
+h5.subhead { font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); margin: 16px 0 6px; }
+
+#tip { position: fixed; z-index: 50; display: none; max-width: 380px; background: var(--ink-1); color: var(--page); font-family: var(--font-mono); font-size: 11px; line-height: 1.5; padding: 7px 10px; border-radius: 7px; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,.25); overflow-wrap: anywhere; }
+#tip .t2 { opacity: .65; }
+footer.site { border-top: 1px solid var(--hairline); padding: 18px 0 30px; margin-top: 20px; }
+footer.site p { font-size: 11px; color: var(--ink-3); max-width: 900px; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="masthead">
+      <div>
+        <div class="kicker" id="kicker"></div>
+        <h1 id="pageTitle"></h1>
+      </div>
+      <div class="meta-right">
+        <button class="theme-btn" id="themeBtn">theme: auto</button>
+        <div class="snapshot" id="snapshot"></div>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="view" id="view-arch">
+    <div class="view-head">
+      <h2>Module dependency graph</h2>
+      <div class="sub">Hover a module to trace its imports · click for details · layers = dependency depth (a module only imports downward)</div>
+    </div>
+    <div class="arch-layout">
+      <div>
+        <div class="graph-card">
+          <div id="graph"></div>
+          <div class="graph-legend" id="graphLegend"></div>
+        </div>
+        <div class="tooling-strip" id="stripRow" style="display:none"></div>
+      </div>
+      <aside class="panel" id="archPanel"></aside>
+    </div>
+  </section>
+
+  <section class="view" id="view-files">
+    <div class="view-head">
+      <h2>File explorer — lines of code treemap</h2>
+      <div class="sub">Cell area = lines of code · click a directory to zoom in · breadcrumb to zoom out</div>
+    </div>
+    <div class="files-toolbar">
+      <select id="pkgSelect"></select>
+      <div class="crumbs" id="crumbs"></div>
+      <div class="type-legend" id="typeLegend"></div>
+    </div>
+    <div class="files-layout">
+      <div id="treemap"></div>
+      <aside>
+        <div class="side-card" id="tmInfo"></div>
+        <div class="side-card">
+          <h4>Largest files in view</h4>
+          <ul class="topfiles" id="topFiles"></ul>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <div id="facetViews"></div>
+</main>
+
+<footer class="site"><div class="wrap"><p id="footNote"></p></div></footer>
+<div id="tip"></div>
+
+<script>
+const EMBED = {"title":"RBA Lead Viewer","subtitle":"RBA REALTORS · LEAD INGESTION & DISPOSITION ATLAS · NEXT.JS + SUPABASE","generated":"2026-09-16","commit":"306d54c","commitDate":"2026-09-10","branch":"main","topKinds":["app"],"stripKinds":[],"scan":{"repoName":"RBA Lead Viewer","since":"180 days ago","modules":[{"id":"app","dir":"app","kind":"app","name":"App Router (Pages & API)","loc":6703,"files":43,"commits":36,"deps":["components","lib"],"tree":{"n":"app","c":[{"n":"leads","c":[{"n":"LeadsClient.tsx","v":1693,"e":"tsx"},{"n":"LeadDetailDrawer.tsx","v":502,"e":"tsx"},{"n":"PhoneCell.tsx","v":117,"e":"tsx"},{"n":"assignment-actions.ts","v":103,"e":"ts"},{"n":"page.tsx","v":103,"e":"tsx"},{"n":"SourceBadge.tsx","v":82,"e":"tsx"},{"n":"actions.ts","v":39,"e":"ts"}],"v":2639,"f":7},{"n":"sales","c":[{"n":"workflow-actions.ts","v":612,"e":"ts"},{"n":"page.tsx","v":243,"e":"tsx"},{"n":"follow-ups","c":[{"n":"page.tsx","v":207,"e":"tsx"}],"v":207,"f":1},{"n":"settings","c":[{"n":"page.tsx","v":143,"e":"tsx"}],"v":143,"f":1},{"n":"visits","c":[{"n":"page.tsx","v":121,"e":"tsx"}],"v":121,"f":1},{"n":"pipeline","c":[{"n":"page.tsx","v":95,"e":"tsx"}],"v":95,"f":1},{"n":"leads","c":[{"n":"[id]","c":[{"n":"page.tsx","v":72,"e":"tsx"}],"v":72,"f":1}],"v":72,"f":1},{"n":"hooks","c":[{"n":"usePINVerification.ts","v":44,"e":"ts"}],"v":44,"f":1},{"n":"layout.tsx","v":35,"e":"tsx"},{"n":"loading.tsx","v":27,"e":"tsx"},{"n":"PINEntryScreenClientWrapper.tsx","v":11,"e":"tsx"}],"v":1610,"f":11},{"n":"settings","c":[{"n":"campaign-mappings","c":[{"n":"CampaignMappingsClient.tsx","v":652,"e":"tsx"},{"n":"page.tsx","v":134,"e":"tsx"}],"v":786,"f":2}],"v":786,"f":2},{"n":"api","c":[{"n":"webhooks","c":[{"n":"portal-email","c":[{"n":"route.ts","v":174,"e":"ts"}],"v":174,"f":1},{"n":"meta","c":[{"n":"route.ts","v":142,"e":"ts"}],"v":142,"f":1},{"n":"google-sheets","c":[{"n":"route.ts","v":104,"e":"ts"}],"v":104,"f":1},{"n":"google-ads","c":[{"n":"route.ts","v":84,"e":"ts"}],"v":84,"f":1}],"v":504,"f":4},{"n":"settings","c":[{"n":"campaign-mappings","c":[{"n":"route.ts","v":136,"e":"ts"}],"v":136,"f":1}],"v":136,"f":1},{"n":"leads","c":[{"n":"[id]","c":[{"n":"route.ts","v":51,"e":"ts"},{"n":"assign","c":[{"n":"route.ts","v":29,"e":"ts"}],"v":29,"f":1}],"v":80,"f":2},{"n":"assigned-to-me","c":[{"n":"route.ts","v":39,"e":"ts"}],"v":39,"f":1}],"v":119,"f":3},{"n":"auth","c":[{"n":"verify-pin","c":[{"n":"route.ts","v":1,"e":"ts"}],"v":1,"f":1}],"v":1,"f":1}],"v":760,"f":9},{"n":"users","c":[{"n":"UsersClient.tsx","v":190,"e":"tsx"},{"n":"actions.ts","v":61,"e":"ts"},{"n":"page.tsx","v":27,"e":"tsx"}],"v":278,"f":3},{"n":"reports","c":[{"n":"attribution","c":[{"n":"actions.ts","v":148,"e":"ts"},{"n":"page.tsx","v":112,"e":"tsx"}],"v":260,"f":2}],"v":260,"f":2},{"n":"login","c":[{"n":"LoginForm.tsx","v":71,"e":"tsx"},{"n":"actions.ts","v":42,"e":"ts"},{"n":"page.tsx","v":15,"e":"tsx"}],"v":128,"f":3},{"n":"AppHeader.tsx","v":102,"e":"tsx"},{"n":"components","c":[{"n":"CopyButton.tsx","v":57,"e":"tsx"}],"v":57,"f":1},{"n":"layout.tsx","v":34,"e":"tsx"},{"n":"manifest.ts","v":32,"e":"ts"},{"n":"globals.css","v":12,"e":"css"},{"n":"page.tsx","v":5,"e":"tsx"}],"v":6703,"f":43}},{"id":"components","dir":"components","kind":"ui","name":"UI Components","loc":2360,"files":14,"commits":4,"deps":["lib"],"tree":{"n":"components","c":[{"n":"sales","c":[{"n":"actions","c":[{"n":"ManageFollowUpSheet.tsx","v":192,"e":"tsx"},{"n":"RecordTokenModal.tsx","v":168,"e":"tsx"},{"n":"UpdateVisitSheet.tsx","v":160,"e":"tsx"},{"n":"LogContactSheet.tsx","v":140,"e":"tsx"},{"n":"ChangeDispositionSheet.tsx","v":135,"e":"tsx"},{"n":"ScheduleVisitSheet.tsx","v":129,"e":"tsx"},{"n":"StartBookingSheet.tsx","v":95,"e":"tsx"}],"v":1019,"f":7},{"n":"leads","c":[{"n":"LeadDetailClient.tsx","v":379,"e":"tsx"}],"v":379,"f":1},{"n":"pipeline","c":[{"n":"PipelineFilterControl.tsx","v":149,"e":"tsx"}],"v":149,"f":1},{"n":"icons.tsx","v":127,"e":"tsx"},{"n":"PINEntryScreen.tsx","v":121,"e":"tsx"},{"n":"PWAInstallCard.tsx","v":120,"e":"tsx"},{"n":"BottomNav.tsx","v":69,"e":"tsx"}],"v":1984,"f":13},{"n":"leads","c":[{"n":"AddLeadDrawer.tsx","v":376,"e":"tsx"}],"v":376,"f":1}],"v":2360,"f":14}},{"id":"lib","dir":"lib","kind":"library","name":"Core Library & Services","loc":1982,"files":25,"commits":14,"deps":["database"],"tree":{"n":"lib","c":[{"n":"leads","c":[{"n":"email-parser-99acres.ts","v":321,"e":"ts"},{"n":"formatters.ts","v":196,"e":"ts"},{"n":"email-parser-magicbricks.ts","v":187,"e":"ts"},{"n":"types.ts","v":141,"e":"ts"},{"n":"google-ads-map.ts","v":135,"e":"ts"},{"n":"normalize-meta.ts","v":115,"e":"ts"},{"n":"normalize-google.ts","v":104,"e":"ts"},{"n":"search.ts","v":32,"e":"ts"},{"n":"google-ads-map.json","v":28,"e":"json"},{"n":"phone.ts","v":11,"e":"ts"},{"n":"validate.ts","v":5,"e":"ts"}],"v":1275,"f":11},{"n":"auth","c":[{"n":"user-management-logic.ts","v":171,"e":"ts"},{"n":"user-list.ts","v":59,"e":"ts"},{"n":"verify-pin.ts","v":48,"e":"ts"},{"n":"authorization.ts","v":33,"e":"ts"},{"n":"require-admin.ts","v":29,"e":"ts"},{"n":"get-users.ts","v":10,"e":"ts"}],"v":350,"f":6},{"n":"time.ts","v":90,"e":"ts"},{"n":"date-utils.ts","v":80,"e":"ts"},{"n":"supabase","c":[{"n":"server.ts","v":39,"e":"ts"},{"n":"admin.ts","v":26,"e":"ts"},{"n":"browser.ts","v":13,"e":"ts"}],"v":78,"f":3},{"n":"notifications","c":[{"n":"service.ts","v":67,"e":"ts"}],"v":67,"f":1},{"n":"verify-signature.ts","v":40,"e":"ts"},{"n":"types.ts","v":2,"e":"ts"}],"v":1982,"f":25}},{"id":"database","dir":"migrations","kind":"database","name":"Supabase Postgres & RLS","loc":685,"files":11,"commits":7,"deps":[],"tree":{"n":"database","c":[{"n":"0010_sales_workflow_foundation.sql","v":200,"e":"sql"},{"n":"0011_disposition_history.sql","v":182,"e":"sql"},{"n":"0001_init.sql","v":126,"e":"sql"},{"n":"0008_sales_pin_rls.sql","v":44,"e":"sql"},{"n":"0007_add_sales_assignment.sql","v":36,"e":"sql"},{"n":"0004_allow_lead_name_edits.sql","v":28,"e":"sql"},{"n":"0005_add_property_mapping_type.sql","v":20,"e":"sql"},{"n":"0009_followup_tracking.sql","v":18,"e":"sql"},{"n":"0006_add_lead_kpis_rpc.sql","v":16,"e":"sql"},{"n":"0003_add_portal_sources.sql","v":8,"e":"sql"},{"n":"0002_add_sheets_bridge_source.sql","v":7,"e":"sql"}],"v":685,"f":11}},{"id":"tests","dir":"tests","kind":"test","name":"Vitest Test Suites","loc":2105,"files":17,"commits":9,"deps":["lib","app"],"tree":{"n":"tests","c":[{"n":"disposition-tracking.test.ts","v":601,"e":"ts"},{"n":"portal-email-webhook.test.ts","v":191,"e":"ts"},{"n":"email-parser-99acres.test.ts","v":179,"e":"ts"},{"n":"user-management.test.ts","v":129,"e":"ts"},{"n":"formatters.test.ts","v":122,"e":"ts"},{"n":"sales-workflow-foundation.test.ts","v":121,"e":"ts"},{"n":"email-parser-magicbricks.test.ts","v":108,"e":"ts"},{"n":"normalize-meta.test.ts","v":87,"e":"ts"},{"n":"user-list.test.ts","v":80,"e":"ts"},{"n":"time.test.ts","v":78,"e":"ts"},{"n":"normalize-google.test.ts","v":77,"e":"ts"},{"n":"dedup.test.ts","v":73,"e":"ts"},{"n":"search-filter.test.ts","v":65,"e":"ts"},{"n":"authorization.test.ts","v":63,"e":"ts"},{"n":"campaign-and-property-mapping.test.ts","v":54,"e":"ts"},{"n":"viewed-state-and-auth.test.ts","v":50,"e":"ts"},{"n":"phone.test.ts","v":27,"e":"ts"}],"v":2105,"f":17}}],"totals":{"loc":13835,"files":110,"modules":5}},"meta":{"runtimeStory":"RBA Lead Viewer ingests real estate leads across multiple channels: Google Ads webhooks, Meta Lead Gen webhooks (with HMAC verification and Graph API resolution), Google Sheets bridge forwarding, and portal email parsers (99acres and Magicbricks). Inbound leads are validated, phone-formatted to E.164, mapped against campaign/property aliases, deduplicated by (source, external_lead_id), and written directly into Supabase Postgres via the service-role client. Internal staff and admins authenticate through Supabase SSR cookie auth to view the lead table, filter by source/campaign/timeline/status, search by text, and manage sales rep assignments. Sales reps authenticate with a role check and a 4-digit PIN to access a mobile-optimized card feed constrained by Postgres Row Level Security (RLS) to only their assigned leads, updating lead dispositions and follow-up timelines.","flow":[["1. Ingest","Webhooks receive leads from Google Ads, Meta Ads (HMAC verified), Sheets, or portal emails (99acres/Magicbricks)"],["2. Normalize & Map","Payloads are parsed, normalized to uniform schema, phone numbers formatted to E.164, and campaign aliases resolved"],["3. Deduplicate & Store","Leads are upserted into Supabase public.leads with unique constraints, read-only field triggers, and service role key"],["4. Authenticate & Authorize","Next.js middleware and Supabase SSR enforce session auth, role routing (admin/staff/sales), and PIN checks"],["5. Staff Triage & Assignment","Admin/staff view lead feed, inspect raw payloads in detail drawer, correct names, and assign to sales reps"],["6. Sales Disposition","Sales reps view RLS-filtered mobile cards, trigger calls/WhatsApp, submit dispositions, and log follow-up dates"]],"testSegments":["tests"],"modules":{"app":{"purpose":"Next.js 15 App Router handling user interface pages (Leads, Sales, Users, Settings) and server API/webhook routes.","keyAreas":["src/app/leads — Interactive leads table with multi-criteria filters, search, quick actions, and detail drawer","src/app/sales — Mobile-optimized sales feed, PIN verification, disposition logging, and lead transfers","src/app/api/webhooks — Ingestion endpoints for Google Ads, Meta Graph API, Google Sheets, and Portal Emails","src/app/users — Admin-gated staff and sales rep user management (roles, sales PIN provisioning)","src/app/settings — Campaign, ad group, and property mapping configuration editor"],"runtime":"Cloudflare Workers edge runtime via OpenNext adapter with Next.js SSR and Server Actions","testOnly":false},"components":{"purpose":"Domain-specific and reusable UI components for lead presentation, quick drawers, and sales operations.","keyAreas":["src/components/leads/AddLeadDrawer.tsx — Slide-over drawer for manual lead creation","src/components/sales/LeadCard.tsx — Mobile-friendly card showing contact details, property info, and actions","src/components/sales/DispositionSheet.tsx — Bottom sheet for recording call outcomes and next follow-up dates","src/components/sales/PINEntryScreen.tsx — 4-digit secure keypad for sales reps","src/components/sales/TransferModal.tsx — Modal to reassign leads between sales agents"],"runtime":"Browser client (React 18 client components with Tailwind CSS styling)","testOnly":false},"lib":{"purpose":"Core business logic: email parsers, payload normalizers, auth/RBAC policies, Supabase client factories, and formatters.","keyAreas":["src/lib/leads/email-parser-* — Inbound email HTML/text parsers for 99acres and Magicbricks portals","src/lib/leads/normalize-* — Normalization pipelines for Google Ads and Meta Graph API payloads","src/lib/leads/google-ads-map.ts — In-memory caching and resolution for campaign/property mappings","src/lib/auth — RBAC helper functions, requireAdmin guard, user management, and PIN verification","src/lib/supabase — Typed Supabase SSR client factories (browser, server cookies, service-role admin)"],"runtime":"Node.js / Cloudflare Worker server-side execution with typed Supabase JS SDK","testOnly":false},"database":{"purpose":"Supabase PostgreSQL database schema, migrations, Row Level Security (RLS) policies, and security definer RPCs.","keyAreas":["0001_init.sql — Base public.leads schema with unique constraint on (source, external_lead_id) and RLS","0004_allow_lead_name_edits.sql — Trigger function leads_protect_submitted_fields() defending immutable data","0005_add_property_mapping_type.sql — public.campaign_mappings table for alias resolutions","0006_add_lead_kpis_rpc.sql — get_lead_kpis() RPC computing totals, new, viewed, and source breakdown","0007_add_sales_assignment.sql — Lead assignment, disposition, status tracking columns","0008_sales_pin_rls.sql — Granular RLS policies restricting sales reps to assigned_to = auth.uid()"],"runtime":"Supabase PostgreSQL database with PL/pgSQL triggers and pgcrypto","testOnly":false},"tests":{"purpose":"Vitest test suite covering portal parsers, payload normalization, authorization guards, deduplication, and search filtering.","keyAreas":["tests/email-parser-*.test.ts — Unit tests for 99acres and Magicbricks email payload extraction","tests/normalize-*.test.ts — Tests for Google Ads and Meta Graph API data normalization","tests/authorization.test.ts & tests/user-management.test.ts — Auth guards and RBAC role tests","tests/dedup.test.ts & tests/formatters.test.ts — Lead deduplication logic and phone/date formatting tests","tests/portal-email-webhook.test.ts — End-to-end webhook ingestion route testing"],"runtime":"Vitest test runner (local / CI)","testOnly":true}}},"facets":[{"id":"routes","nav":"Routes & Endpoints","title":"Application Routes & Webhooks","headline":"9 route handlers · 6 App Router pages · 11 server actions","sub":"Next.js App Router routing & ingestion surface","hero":{"v":"15","l":"Total Routes","s":"9 API · 6 Pages"},"columns":2,"sections":[{"kind":"tree","title":"Route Tree & Handlers","sub":"src/app hierarchy","items":[{"label":"webhooks (inbound ingestion)","badge":"webhook","children":[{"label":"google-ads — POST (Secret Header)","badge":"webhook"},{"label":"meta — GET (Verify) · POST (HMAC)","badge":"webhook"},{"label":"google-sheets — POST (Bridge Ingestion)","badge":"webhook"},{"label":"portal-email — POST (99acres & Magicbricks)","badge":"webhook"}]},{"label":"api (internal endpoints)","badge":"internal","children":[{"label":"leads/assigned-to-me — GET","badge":"sales"},{"label":"leads/[id] — PATCH","badge":"internal"},{"label":"leads/[id]/assign — PATCH","badge":"staff"},{"label":"auth/verify-pin — POST","badge":"auth"},{"label":"settings/campaign-mappings — GET · POST · DELETE","badge":"admin"}]},{"label":"pages (UI routes)","badge":"page","children":[{"label":"/ — Root Redirect (/leads or /sales)","badge":"page"},{"label":"/login — Staff & Sales Authentication","badge":"page"},{"label":"/leads — Full Lead Viewer & Drawer (Staff/Admin)","badge":"page"},{"label":"/sales — PIN Guard & Mobile Feed (Sales)","badge":"page"},{"label":"/users — User & Role Administration (Admin)","badge":"page"},{"label":"/settings/campaign-mappings — Campaign Alias Mapping (Admin)","badge":"page"}]}]},{"kind":"barlist","title":"API Routes by Code Complexity (LOC)","note":"Hover for implementation file","series":[{"k":"loc","label":"Lines of Code"}],"rows":[{"label":"webhooks/portal-email","values":{"loc":175},"meta":"POST · 175 LOC","tip":"src/app/api/webhooks/portal-email/route.ts · Auth: Secret Header"},{"label":"webhooks/meta","values":{"loc":143},"meta":"GET, POST · 143 LOC","tip":"src/app/api/webhooks/meta/route.ts · Auth: HMAC SHA256 / Token"},{"label":"settings/campaign-mappings","values":{"loc":137},"meta":"GET, POST, DELETE · 137 LOC","tip":"src/app/api/settings/campaign-mappings/route.ts · Auth: Staff / Admin"},{"label":"webhooks/google-sheets","values":{"loc":104},"meta":"POST · 104 LOC","tip":"src/app/api/webhooks/google-sheets/route.ts · Auth: Secret Header"},{"label":"webhooks/google-ads","values":{"loc":85},"meta":"POST · 85 LOC","tip":"src/app/api/webhooks/google-ads/route.ts · Auth: Secret Header"},{"label":"leads/[id]","values":{"loc":51},"meta":"PATCH · 51 LOC","tip":"src/app/api/leads/[id]/route.ts · Auth: Staff / Sales (RLS)"},{"label":"leads/assigned-to-me","values":{"loc":40},"meta":"GET · 40 LOC","tip":"src/app/api/leads/assigned-to-me/route.ts · Auth: Sales Session (RLS)"},{"label":"leads/[id]/assign","values":{"loc":30},"meta":"PATCH · 30 LOC","tip":"src/app/api/leads/[id]/assign/route.ts · Auth: Staff / Admin"},{"label":"auth/verify-pin","values":{"loc":2},"meta":"POST · 2 LOC","tip":"src/app/api/auth/verify-pin/route.ts · Auth: Authenticated Rep"}]},{"kind":"groups","title":"Server Actions (RPCs)","groups":[{"title":"Lead Management (actions.ts)","chips":["markAsViewed","updateLeadName"],"accent":false},{"title":"Lead Assignment (assignment-actions.ts)","chips":["assignLeadAction","getAssignableSalesRepsAction"],"accent":false},{"title":"Sales Dispositions (sales-actions.ts)","chips":["updateLeadStatusAndDispositionAction","transferLeadAction"],"accent":true},{"title":"Authentication (actions.ts)","chips":["loginAction","logoutAction"],"accent":false},{"title":"User & PIN Admin (actions.ts)","chips":["createUserAction","updateUserRoleAction","setSalesPinAction","deleteUserAction"],"accent":true}]}]},{"id":"database","nav":"Database & Security","title":"PostgreSQL Schema & Security Architecture","headline":"2 tables · 8 migrations · 4 RLS policies · 1 trigger · 1 RPC","sub":"Supabase Postgres with Row Level Security","hero":{"v":"4","l":"RLS Policies","s":"Admin/Staff/Sales"},"columns":2,"sections":[{"kind":"tiles","tiles":[{"v":"2","l":"Postgres Tables","s":"leads · campaign_mappings"},{"v":"8","l":"Migrations","s":"0001 to 0008"},{"v":"5","l":"Lead Sources","s":"Google · Meta · Sheets · 99acres · Magicbricks"},{"v":"4","l":"RLS Policies","s":"Staff full · Rep assigned"}]},{"kind":"groups","title":"Database Schema & Constraints","groups":[{"title":"public.leads (Core Lead Entity)","chips":["id (uuid pk)","source (check constraint)","external_lead_id","full_name","phone_number","email","campaign_name","ad_group_name","ad_name","budget_range","bhk_configuration","planning_timeline","platform","source_submitted_at","created_at","viewed_at","assigned_to (uuid)","assigned_at","lead_status","disposition","disposition_details","next_follow_up","raw_payload (jsonb)"]},{"title":"public.campaign_mappings (Aliases)","chips":["id (text pk)","type (campaign|adgroup|property)","display_name","created_at","updated_at"]},{"title":"Database Indices & Uniqueness","chips":["unique (source, external_lead_id)","leads_source_submitted_at_desc_idx","leads_source_idx","leads_campaign_name_idx","leads_ad_group_name_idx","leads_viewed_at_idx"]},{"title":"Row Level Security (RLS) Policies","accent":true,"chips":["Admin and staff full access (FOR ALL on leads)","Sales reps assigned leads select (FOR SELECT where assigned_to = auth.uid())","Sales reps assigned leads update (FOR UPDATE where assigned_to = auth.uid())","allow select campaign_mappings (FOR SELECT to public/staff)"]},{"title":"Security Triggers & Stored Procedures","chips":["leads_protect_submitted_fields() — Prevents mutations to submitted data (source, phone, raw_payload)","get_lead_kpis() — SECURITY DEFINER JSON aggregator for total, new, viewed & source stats"]}]},{"kind":"loclist","title":"PostgreSQL Migration History","sub":"supabase/migrations","rows":[{"label":"0001_init.sql","meta":"127 LOC","bar":127},{"label":"0002_add_sheets_bridge_source.sql","meta":"7 LOC","bar":7},{"label":"0003_add_portal_sources.sql","meta":"9 LOC","bar":9},{"label":"0004_allow_lead_name_edits.sql","meta":"28 LOC","bar":28},{"label":"0005_add_property_mapping_type.sql","meta":"21 LOC","bar":21},{"label":"0006_add_lead_kpis_rpc.sql","meta":"17 LOC","bar":17},{"label":"0007_add_sales_assignment.sql","meta":"37 LOC","bar":37},{"label":"0008_sales_pin_rls.sql","meta":"45 LOC","bar":45},{"label":"0009_followup_tracking.sql","meta":"19 LOC","bar":19},{"label":"0010_sales_workflow_foundation.sql","meta":"201 LOC","bar":201},{"label":"0011_disposition_history.sql","meta":"183 LOC","bar":183}]}]},{"id":"pipelines","nav":"Pipelines & Lib","title":"Lead Ingestion Pipelines & Utilities","headline":"4 ingestion pipelines · 2 email parsers · RBAC & Auth helpers","sub":"src/lib modular business logic","hero":{"v":"4","l":"Ingestion Pipelines","s":"Google · Meta · 99acres · MB"},"columns":2,"sections":[{"kind":"loclist","title":"Lead Processing & Parsing Libraries","sub":"src/lib/leads","rows":[{"label":"email-parser-99acres.ts (HTML & plain-text regex parser)","meta":"322 LOC","bar":322},{"label":"email-parser-magicbricks.ts (Multi-format portal parser)","meta":"188 LOC","bar":188},{"label":"formatters.ts (Date, phone, badge & payload formatters)","meta":"197 LOC","bar":197},{"label":"google-ads-map.ts (Dynamic alias resolution cache)","meta":"136 LOC","bar":136},{"label":"normalize-meta.ts (Graph API leadgen payload adapter)","meta":"116 LOC","bar":116},{"label":"normalize-google.ts (Google Ads webhook field mapper)","meta":"105 LOC","bar":105},{"label":"search.ts (Client-side lead filtering & search predicate)","meta":"33 LOC","bar":33},{"label":"phone.ts (E.164 phone sanitization & formatting)","meta":"12 LOC","bar":12},{"section":"Authentication & Client Infrastructure"},{"label":"user-management-logic.ts (User CRUD & PIN management)","meta":"171 LOC","bar":171},{"label":"time.ts (IST timezone conversions & formatting)","meta":"91 LOC","bar":91},{"label":"verify-signature.ts (Meta HMAC SHA256 verification)","meta":"41 LOC","bar":41},{"label":"supabase/server.ts (Server-side Supabase SSR client)","meta":"40 LOC","bar":40},{"label":"supabase/admin.ts (Service role client for webhooks)","meta":"27 LOC","bar":27}]},{"kind":"groups","title":"Lead Lifecycle States & Data Normalization","groups":[{"title":"Ingestion Sources","chips":["Google Ads Webhook","Meta Lead Ads (Graph API)","Facebook Sheets Bridge","99acres Portal Email","Magicbricks Portal Email"]},{"title":"Lead Status Workflow","chips":["NEW (Unviewed)","VIEWED","CONTACTED","INTERESTED","SITE_VISIT_SCHEDULED","NOT_INTERESTED","INVALID / SPAM"]},{"title":"Sales Dispositions","accent":true,"chips":["Connected - Follow Up","Connected - Site Visit","Connected - Not Interested","RNR (Ring No Response)","Busy / Call Later","Switch Off / Unreachable","Wrong Number"]},{"title":"User Roles & Access Control","chips":["admin (Full user/mapping/lead access)","staff (Lead triage, name edit, assignment)","sales (Assigned leads only, PIN gated)"]}]}]}]};
+
+/* ---------- helpers ---------- */
+const $ = (s, el) => (el || document).querySelector(s);
+const MODS = EMBED.scan.modules;
+const MOD = new Map(MODS.map((m) => [m.id, m]));
+const META_MOD = (EMBED.meta && EMBED.meta.modules) || {};
+const fmtNum = (n) => n.toLocaleString("en-US");
+const fmtLoc = (n) => n >= 10000 ? Math.round(n / 1000) + "k" : n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const SLOTS = ["--slot-1", "--slot-2", "--slot-3", "--slot-4", "--slot-5", "--slot-7", "--slot-8", "--slot-6"];
+
+const tip = $("#tip");
+function showTip(html, ev) { tip.innerHTML = html; tip.style.display = "block"; moveTip(ev); }
+function moveTip(ev) {
+  const pad = 14;
+  let x = ev.clientX + pad, y = ev.clientY + pad;
+  const r = tip.getBoundingClientRect();
+  if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - pad;
+  if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - pad;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+function hideTip() { tip.style.display = "none"; }
+function tipify(el, html) {
+  el.onmouseenter = (ev) => showTip(html, ev);
+  el.onmousemove = moveTip;
+  el.onmouseleave = hideTip;
+}
+
+/* ---------- theme ---------- */
+const themeBtn = $("#themeBtn");
+const THEMES = ["auto", "light", "dark"];
+let theme = localStorage.getItem("cbmap-theme") || "auto";
+function applyTheme() {
+  if (theme === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", theme);
+  themeBtn.textContent = "theme: " + theme;
+  localStorage.setItem("cbmap-theme", theme);
+}
+themeBtn.onclick = () => { theme = THEMES[(THEMES.indexOf(theme) + 1) % 3]; applyTheme(); };
+applyTheme();
+
+/* ---------- header ---------- */
+document.title = `${EMBED.title} · Codebase Map`;
+$("#kicker").textContent = EMBED.subtitle || "codebase atlas";
+$("#pageTitle").innerHTML = `${esc(EMBED.title)} <span class="dim">/ codebase map</span>`;
+$("#snapshot").textContent = `snapshot ${EMBED.generated}${EMBED.commit ? ` · ${EMBED.branch ? EMBED.branch + " @ " : ""}${EMBED.commit}` : ""}`;
+
+const kindCounts = {};
+for (const m of MODS) kindCounts[m.kind] = (kindCounts[m.kind] || 0) + 1;
+const kindSummary = Object.entries(kindCounts).sort((a, b) => b[1] - a[1]).slice(0, 3)
+  .map(([k, n]) => `${n} ${k}`).join(" · ");
+const tiles = [
+  [fmtLoc(EMBED.scan.totals.loc), "lines of code", "counted source only"],
+  [fmtNum(EMBED.scan.totals.files), "source files", "see footer for scope"],
+  [EMBED.scan.totals.modules, "modules", kindSummary],
+  ...EMBED.facets.filter((f) => f.hero).map((f) => [f.hero.v, f.hero.l, f.hero.s || ""]),
+].slice(0, 6);
+$("#stats").innerHTML = tiles.map(([v, l, s]) =>
+  `<div class="stat"><div class="v">${esc(v)}</div><div class="l">${esc(l)}</div><div class="s">${esc(s)}</div></div>`).join("");
+$("#footNote").textContent =
+  `Generated ${EMBED.generated} from a static scan${EMBED.commit ? ` @ ${EMBED.commit} (${EMBED.commitDate})` : ""}. ` +
+  `Line counts cover source files only; dependency dirs, build output, and configured generated paths are excluded. ` +
+  `Module descriptions were written from reading each module's entry points at generation time.`;
+
+/* ---------- tabs ---------- */
+const tabDefs = [
+  { id: "arch", label: "Architecture" },
+  { id: "files", label: "File explorer" },
+  ...EMBED.facets.map((f) => ({ id: "facet-" + f.id, label: f.nav || f.title })),
+];
+$("#tabs").innerHTML = tabDefs.map((t, i) =>
+  `<button role="tab" data-view="${t.id}" aria-selected="${i === 0}">${esc(t.label)}</button>`).join("");
+function switchTab(view) {
+  for (const b of $("#tabs").querySelectorAll("button")) b.setAttribute("aria-selected", String(b.dataset.view === view));
+  for (const s of document.querySelectorAll("section.view")) s.classList.toggle("active", s.id === "view-" + view);
+  if (view === "files") renderTreemap();
+  if (view === "arch") renderGraph();
+  if (location.hash !== "#" + view) history.replaceState(null, "", "#" + view);
+}
+$("#tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) switchTab(b.dataset.view); });
+
+/* =========================================================
+   ARCHITECTURE GRAPH
+   ========================================================= */
+const stripKinds = new Set(EMBED.stripKinds);
+const gnodes = MODS.filter((m) => !stripKinds.has(m.kind));
+const gids = new Set(gnodes.map((n) => n.id));
+const importsOf = new Map(gnodes.map((n) => [n.id, n.deps.filter((d) => gids.has(d))]));
+const importedBy = new Map(gnodes.map((n) => [n.id, []]));
+for (const [id, deps] of importsOf) for (const d of deps) importedBy.get(d).push(id);
+const isTestOnly = (id) => !!META_MOD[id]?.testOnly;
+
+const topKinds = new Set(EMBED.topKinds);
+const layerMemo = new Map();
+function layerOf(id, seen = new Set()) {
+  if (layerMemo.has(id)) return layerMemo.get(id);
+  if (seen.has(id)) return 0;
+  seen.add(id);
+  const deps = importsOf.get(id).filter((d) => !topKinds.has(MOD.get(d).kind));
+  const l = deps.length ? 1 + Math.max(...deps.map((d) => layerOf(d, seen))) : 0;
+  layerMemo.set(id, l);
+  return l;
+}
+for (const n of gnodes) if (!topKinds.has(n.kind)) layerOf(n.id);
+const maxBase = Math.max(0, ...[...layerMemo.values()]);
+for (const n of gnodes) if (topKinds.has(n.kind)) layerMemo.set(n.id, maxBase + 1);
+
+const rows = [];
+for (const n of gnodes) {
+  const l = layerMemo.get(n.id) ?? 0;
+  (rows[l] = rows[l] || []).push(n);
+}
+for (let i = 0; i < rows.length; i++) if (!rows[i]) rows[i] = [];
+for (const row of rows) row.sort((a, b) => b.loc - a.loc);
+
+// barycenter ordering: nudge each row toward the mean position of its neighbors
+(function orderRows() {
+  const posOf = new Map();
+  const refresh = () => rows.forEach((row) => row.forEach((n, i) => posOf.set(n.id, (i + 0.5) / row.length)));
+  refresh();
+  for (let pass = 0; pass < 4; pass++) {
+    const order = pass % 2 === 0 ? rows : [...rows].reverse();
+    for (const row of order) {
+      row.sort((a, b) => bary(a) - bary(b));
+      refresh();
+    }
+  }
+  function bary(n) {
+    const nb = [...importsOf.get(n.id), ...importedBy.get(n.id)];
+    const ps = nb.map((id) => posOf.get(id)).filter((p) => p !== undefined);
+    return ps.length ? ps.reduce((s, p) => s + p, 0) / ps.length : posOf.get(n.id);
+  }
+})();
+
+// kind colors: top kinds first, then by aggregate loc
+const kindOrder = [...new Set([
+  ...EMBED.topKinds.filter((k) => kindCounts[k]),
+  ...Object.keys(kindCounts).filter((k) => !stripKinds.has(k)).sort((a, b) => {
+    const loc = (k) => MODS.filter((m) => m.kind === k).reduce((s, m) => s + m.loc, 0);
+    return loc(b) - loc(a);
+  }),
+])].filter((k) => !stripKinds.has(k));
+const kindColor = new Map(kindOrder.map((k, i) => [k, `var(${SLOTS[i % SLOTS.length]})`]));
+
+$("#graphLegend").innerHTML =
+  kindOrder.map((k) => `<span class="li"><span class="sw" style="background:${kindColor.get(k)}"></span> ${esc(k)}</span>`).join("") +
+  (gnodes.some((n) => isTestOnly(n.id)) ? `<span class="li"><span class="sw dashed"></span> test-time only</span>` : "") +
+  `<span class="li"><span class="sw line" style="background:var(--slot-1)"></span> imports (what it uses)</span>
+   <span class="li"><span class="sw line" style="background:var(--slot-8)"></span> imported by (who uses it)</span>`;
+
+const graphEl = $("#graph");
+let selectedNode = null;
+const ROW_H = 92, NODE_H = 46, PAD_TOP = 34, PAD_BOT = 26;
+
+function renderGraph() {
+  const W = Math.max(860, graphEl.clientWidth || graphEl.parentElement.clientWidth);
+  const nLayers = rows.length;
+  const H = PAD_TOP + PAD_BOT + (nLayers - 1) * ROW_H + NODE_H;
+  graphEl.style.height = H + "px";
+  graphEl.innerHTML = "";
+
+  const pos = new Map();
+  rows.forEach((row, layer) => {
+    const y = PAD_TOP + (nLayers - 1 - layer) * ROW_H;
+    const widths = row.map((n) => Math.max(100, n.dir.length * 8.4 + 52));
+    const gap = 26;
+    const total = widths.reduce((a, b) => a + b, 0) + gap * (row.length - 1);
+    let x = Math.max(64, (W - total) / 2);
+    row.forEach((n, i) => { pos.set(n.id, { x, y, w: widths[i] }); x += widths[i] + gap; });
+  });
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", W); svg.setAttribute("height", H);
+  const edgeEls = [];
+  for (const [from, deps] of importsOf) {
+    const a = pos.get(from);
+    for (const to of deps) {
+      const b = pos.get(to);
+      if (!a || !b) continue;
+      const x1 = a.x + a.w / 2, y1 = a.y + NODE_H, x2 = b.x + b.w / 2, y2 = b.y;
+      const dy = Math.max(34, (y2 - y1) * 0.45);
+      const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      p.setAttribute("d", `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy}, ${x2} ${y2}`);
+      p.dataset.from = from; p.dataset.to = to;
+      svg.appendChild(p);
+      edgeEls.push(p);
+    }
+  }
+  graphEl.appendChild(svg);
+
+  rows.forEach((row, layer) => {
+    if (!row.length) return;
+    const y = PAD_TOP + (nLayers - 1 - layer) * ROW_H;
+    const lab = document.createElement("div");
+    lab.className = "row-label";
+    lab.style.top = (y + NODE_H / 2 - 6) + "px";
+    const kinds = [...new Set(row.map((n) => n.kind))];
+    lab.textContent = layer === nLayers - 1 && EMBED.topKinds.length && kinds.every((k) => topKinds.has(k))
+      ? kinds.join("·") : "L" + layer;
+    graphEl.appendChild(lab);
+  });
+
+  const nodeEls = new Map();
+  for (const n of gnodes) {
+    const p = pos.get(n.id);
+    if (!p) continue;
+    const el = document.createElement("div");
+    el.className = "gnode" + (isTestOnly(n.id) ? " testpkg" : "");
+    el.style.cssText = `left:${p.x}px;top:${p.y}px;width:${p.w}px;--kc:${kindColor.get(n.kind) || "var(--c-other)"}`;
+    el.innerHTML = `<span class="gname">${esc(n.dir)}</span><span class="gmeta">${fmtLoc(n.loc)} loc</span>`;
+    el.onmouseenter = (ev) => { focusNode(n.id); showTip(nodeTip(n), ev); };
+    el.onmousemove = moveTip;
+    el.onmouseleave = () => { hideTip(); focusNode(selectedNode); };
+    el.onclick = (ev) => { ev.stopPropagation(); selectNode(n.id); };
+    graphEl.appendChild(el);
+    nodeEls.set(n.id, el);
+  }
+  graphEl._edgeEls = edgeEls;
+  graphEl._nodeEls = nodeEls;
+  focusNode(selectedNode);
+}
+
+function nodeTip(n) {
+  return `<b>${esc(n.name)}</b><br>` +
+    `<span class="t2">${fmtNum(n.loc)} loc · ${fmtNum(n.files)} files · ${fmtNum(n.commits)} commits (${esc(EMBED.scan.since)})</span><br>` +
+    `<span class="t2">imports ${importsOf.get(n.id).length} · imported by ${importedBy.get(n.id).length} — click for details</span>`;
+}
+
+function focusNode(id) {
+  const edgeEls = graphEl._edgeEls || [], nodeEls = graphEl._nodeEls || new Map();
+  graphEl.classList.toggle("focused", !!id);
+  if (!id) {
+    for (const p of edgeEls) p.classList.remove("is-imports", "is-imported");
+    for (const el of nodeEls.values()) el.classList.remove("dimmed");
+    for (const [nid, el] of nodeEls) el.classList.toggle("selected", nid === selectedNode);
+    return;
+  }
+  const related = new Set([id, ...importsOf.get(id), ...importedBy.get(id)]);
+  for (const p of edgeEls) {
+    p.classList.toggle("is-imports", p.dataset.from === id);
+    p.classList.toggle("is-imported", p.dataset.to === id);
+  }
+  for (const [nid, el] of nodeEls) {
+    el.classList.toggle("dimmed", !related.has(nid));
+    el.classList.toggle("selected", nid === selectedNode);
+  }
+}
+
+function selectNode(id) { selectedNode = id; focusNode(id); renderArchPanel(id); }
+graphEl.addEventListener("click", () => { selectedNode = null; focusNode(null); renderArchPanel(null); });
+addEventListener("keydown", (e) => { if (e.key === "Escape") { selectedNode = null; focusNode(null); renderArchPanel(null); } });
+
+function renderArchPanel(id) {
+  const panel = $("#archPanel");
+  if (!id) {
+    const flow = EMBED.meta.flow || [];
+    panel.innerHTML =
+      (flow.length ? `<div class="kicker">how it runs</div>
+        <h3 style="font-size:14px">Request → response → background</h3>
+        <ol class="flow-steps">${flow.map(([b, t]) => `<li><b>${esc(b)}</b><br>${esc(t)}</li>`).join("")}</ol>` : "") +
+      (EMBED.meta.runtimeStory ? `<details class="story"><summary>full runtime story</summary><p>${esc(EMBED.meta.runtimeStory)}</p></details>` : "") +
+      `<h4>reading the graph</h4>
+       <p style="font-size:12px;color:var(--ink-2)">Every module sits one layer above the deepest thing it imports, so height = dependency depth.
+       Hover any node: <span style="color:var(--slot-1)">blue edges</span> point at what it imports,
+       <span style="color:var(--slot-8)">orange edges</span> come from who imports it. Click to pin details here.</p>`;
+    return;
+  }
+  const n = MOD.get(id);
+  const m = META_MOD[id] || {};
+  const chips = (ids, rev) =>
+    `<div class="dep-chips${rev ? " rev" : ""}">${ids.map((d) =>
+      `<button data-id="${d}">${esc(MOD.get(d).dir)}</button>`).join("") || `<span style="font-size:11px;color:var(--ink-3)">none</span>`}</div>`;
+  panel.innerHTML =
+    `<div class="kicker">${esc(id)}</div>
+     <h3>${esc(n.name)}</h3>
+     <div class="badges">
+       <span class="badge kind" style="--kc:${kindColor.get(n.kind) || "var(--c-other)"}">${esc(n.kind)}</span>
+       ${isTestOnly(id) ? `<span class="badge">test-time</span>` : ""}
+     </div>
+     <p class="purpose">${esc(m.purpose || "")}</p>
+     ${m.runtime ? `<div class="runtime"><b>Runs:</b> ${esc(m.runtime)}</div>` : ""}
+     <div class="pstats">
+       <div><div class="v">${fmtLoc(n.loc)}</div><div class="l">loc</div></div>
+       <div><div class="v">${fmtNum(n.files)}</div><div class="l">files</div></div>
+       <div><div class="v">${fmtNum(n.commits)}</div><div class="l">commits</div></div>
+     </div>
+     ${m.keyAreas ? `<h4>key areas</h4><ul class="areas">${m.keyAreas.map((a) => {
+       const i = a.indexOf(" — ");
+       return `<li>${i > 0 ? `<b>${esc(a.slice(0, i))}</b> — ${esc(a.slice(i + 3))}` : esc(a)}</li>`;
+     }).join("")}</ul>` : ""}
+     <h4>imports (${importsOf.get(id).length})</h4>${chips(importsOf.get(id), false)}
+     <h4>imported by (${importedBy.get(id).length})</h4>${chips(importedBy.get(id), true)}
+     <button class="explore-btn">Explore files →</button>`;
+  panel.querySelectorAll(".dep-chips button").forEach((b) => (b.onclick = () => selectNode(b.dataset.id)));
+  panel.querySelector(".explore-btn").onclick = () => { setTreemapPkg(id); switchTab("files"); };
+}
+
+/* stripped-kind chip row */
+const stripped = MODS.filter((m) => stripKinds.has(m.kind));
+if (stripped.length) {
+  const row = $("#stripRow");
+  row.style.display = "";
+  row.innerHTML = `<span class="kicker" style="margin-right:2px">${esc([...stripKinds].join("/"))}</span>` +
+    stripped.map((m) => `<span class="chip" data-id="${m.id}">${esc(m.dir)}</span>`).join("");
+  row.querySelectorAll(".chip").forEach((c) => {
+    const m = META_MOD[c.dataset.id];
+    tipify(c, esc(m?.purpose || MOD.get(c.dataset.id).name));
+  });
+}
+
+/* =========================================================
+   FILE TREEMAP
+   ========================================================= */
+const TYPE_DEFS = [
+  ["code", "Code", "--slot-1", ["ts", "js", "mjs", "cjs", "py", "go", "rs", "java", "rb", "php", "c", "cc", "cpp", "h", "hpp", "cs", "swift", "kt", "scala", "ex", "exs", "sh", "proto", "graphql", "tf"]],
+  ["ui", "UI / markup", "--slot-2", ["tsx", "jsx", "vue", "svelte", "html", "heex", "eex", "erb"]],
+  ["data", "Data / config", "--slot-3", ["json", "yaml", "yml", "toml"]],
+  ["docs", "Docs", "--slot-4", ["md", "mdx", "rst"]],
+  ["sql", "SQL", "--slot-5", ["sql"]],
+  ["styles", "Styles", "--slot-7", ["css", "scss", "sass", "less"]],
+  ["other", "Other", "--c-other", []],
+];
+const EXT2TYPE = new Map();
+for (const [k, , , exts] of TYPE_DEFS) for (const e of exts) EXT2TYPE.set(e, k);
+const TYPE_VAR = Object.fromEntries(TYPE_DEFS.map(([k, , v]) => [k, v]));
+const typeOf = (ext) => EXT2TYPE.get(ext) || "other";
+const TESTY_SEG = new Set(["__tests__", "test", "tests", "testing", "spec", "specs", "fixtures", "__fixtures__", "__mocks__", "mocks", ...(EMBED.meta.testSegments || [])]);
+const isTestFile = (name, segs) => segs.slice(0, -1).some((s) => TESTY_SEG.has(s)) || /\.(test|spec|stories)\.|_test\.|Test\.(java|kt)$|test_.*\.py$/.test(name);
+
+const tmState = { pkg: MODS.slice().sort((a, b) => b.loc - a.loc)[0].id, path: [] };
+const tmEl = $("#treemap");
+
+const pkgSelect = $("#pkgSelect");
+{
+  const kinds = [...new Set(MODS.map((m) => m.kind))];
+  pkgSelect.innerHTML = kinds.map((kind) =>
+    `<optgroup label="${esc(kind)}">` +
+    MODS.filter((m) => m.kind === kind).sort((a, b) => b.loc - a.loc)
+      .map((m) => `<option value="${m.id}">${esc(m.dir)} — ${fmtLoc(m.loc)} loc</option>`).join("") +
+    `</optgroup>`).join("");
+  pkgSelect.value = tmState.pkg;
+  pkgSelect.onchange = () => setTreemapPkg(pkgSelect.value);
+}
+function setTreemapPkg(id) {
+  tmState.pkg = id;
+  tmState.path = [];
+  pkgSelect.value = id;
+  if ($("#view-files").classList.contains("active")) renderTreemap();
+}
+
+$("#typeLegend").innerHTML = TYPE_DEFS.map(([k, label, v]) =>
+  `<span class="li" data-type="${k}"><span class="sw" style="background:var(${v})"></span>${label}</span>`).join("") +
+  `<span class="li"><span class="sw" style="background:var(--surface-2);background-image:repeating-linear-gradient(45deg,var(--hatch) 0 2px,transparent 2px 7px)"></span>tests / fixtures</span>`;
+$("#typeLegend").querySelectorAll(".li[data-type]").forEach((li) => {
+  li.onmouseenter = () => { tmEl.classList.add("type-focus"); tmEl.querySelectorAll(`.tm-file[data-type="${li.dataset.type}"]`).forEach((c) => c.classList.add("type-hit")); };
+  li.onmouseleave = () => { tmEl.classList.remove("type-focus"); tmEl.querySelectorAll(".type-hit").forEach((c) => c.classList.remove("type-hit")); };
+});
+
+function squarify(children, x, y, w, h, out) {
+  const items = children.filter((c) => c.v > 0);
+  const total = items.reduce((s, c) => s + c.v, 0);
+  if (!total || w <= 2 || h <= 2) return out;
+  const scale = (w * h) / total;
+  const areas = items.map((c) => ({ node: c, area: c.v * scale }));
+  let cx = x, cy = y, cw = w, ch = h, row = [];
+  const worst = (r, side) => {
+    const s = r.reduce((a, b) => a + b.area, 0);
+    let mx = 0, mn = Infinity;
+    for (const it of r) { if (it.area > mx) mx = it.area; if (it.area < mn) mn = it.area; }
+    return Math.max((side * side * mx) / (s * s), (s * s) / (side * side * mn));
+  };
+  const layoutRow = (r) => {
+    const s = r.reduce((a, b) => a + b.area, 0);
+    if (cw >= ch) {
+      const rw = s / ch; let yy = cy;
+      for (const it of r) { const hh = it.area / rw; out.push({ node: it.node, x: cx, y: yy, w: rw, h: hh }); yy += hh; }
+      cx += rw; cw -= rw;
+    } else {
+      const rh = s / cw; let xx = cx;
+      for (const it of r) { const ww = it.area / rh; out.push({ node: it.node, x: xx, y: cy, w: ww, h: rh }); xx += ww; }
+      cy += rh; ch -= rh;
+    }
+  };
+  let i = 0;
+  while (i < areas.length) {
+    const side = Math.min(cw, ch);
+    if (row.length === 0 || worst([...row, areas[i]], side) <= worst(row, side)) { row.push(areas[i]); i++; }
+    else { layoutRow(row); row = []; }
+  }
+  if (row.length) layoutRow(row);
+  return out;
+}
+
+function currentRoot() {
+  let node = MOD.get(tmState.pkg).tree;
+  for (const name of tmState.path) {
+    const next = (node.c || []).find((c) => c.n === name && c.c);
+    if (!next) break;
+    node = next;
+  }
+  return node;
+}
+
+function cellTip(node, segs, pctBase) {
+  const pct = pctBase ? ` · ${((node.v / pctBase) * 100).toFixed(1)}% of view` : "";
+  if (node.c) return `<b>${esc(segs.join("/"))}/</b><br><span class="t2">${fmtNum(node.v)} loc · ${fmtNum(node.f)} files${pct} — click to zoom</span>`;
+  return `<b>${esc(segs.join("/"))}</b><br><span class="t2">${fmtNum(node.v)} loc${pct}</span>`;
+}
+
+function renderTreemap() {
+  if (!tmEl.clientWidth) return;
+  const root = currentRoot();
+  const W = tmEl.clientWidth, H = tmEl.clientHeight;
+  tmEl.innerHTML = "";
+  const viewTotal = root.v;
+
+  const mkFileCell = (r, node, segs, parent) => {
+    const el = document.createElement("div");
+    const t = typeOf(node.e);
+    el.className = "tm-cell tm-file" + (isTestFile(node.n, segs) ? " hatched" : "");
+    el.dataset.type = t;
+    el.style.cssText = `left:${r.x + 1}px;top:${r.y + 1}px;width:${Math.max(1, r.w - 2)}px;height:${Math.max(1, r.h - 2)}px;background-color:var(${TYPE_VAR[t]})`;
+    if (r.w > 56 && r.h > 17) el.innerHTML = `<span class="lbl">${esc(node.n)}</span>`;
+    tipify(el, cellTip(node, segs, viewTotal));
+    parent.appendChild(el);
+  };
+  const mkDirCell = (r, node, segs, pathNames, parent) => {
+    const el = document.createElement("div");
+    el.className = "tm-cell tm-dircell";
+    el.style.cssText = `left:${r.x + 1}px;top:${r.y + 1}px;width:${Math.max(1, r.w - 2)}px;height:${Math.max(1, r.h - 2)}px`;
+    if (r.w > 56 && r.h > 17) el.innerHTML = `<span class="lbl">${esc(node.n)}/</span>`;
+    tipify(el, cellTip(node, segs, viewTotal));
+    el.onclick = (ev) => { ev.stopPropagation(); tmState.path = pathNames; renderTreemap(); };
+    parent.appendChild(el);
+  };
+
+  function renderChildren(node, parent, w, h, segs, pathNames, depth) {
+    const inset = depth === 0 ? 4 : 1;
+    const rects = squarify(node.c || [], inset, inset, w - inset * 2, h - inset * 2, []);
+    for (const r of rects) {
+      const ch = r.node;
+      const chSegs = [...segs, ch.n];
+      if (!ch.c) { mkFileCell(r, ch, chSegs, parent); continue; }
+      const chPath = [...pathNames, ch.n];
+      if (r.w < 90 || r.h < 64) { mkDirCell(r, ch, chSegs, chPath, parent); continue; }
+      const g = document.createElement("div");
+      g.className = "tm-group";
+      g.style.cssText = `left:${r.x + 1}px;top:${r.y + 1}px;width:${r.w - 2}px;height:${r.h - 2}px`;
+      g.innerHTML = `<div class="hd">${esc(ch.n)}/ <span style="opacity:.55;font-weight:400">${fmtLoc(ch.v)}</span></div><div class="body"></div>`;
+      const hd = g.querySelector(".hd");
+      hd.onclick = (ev) => { ev.stopPropagation(); tmState.path = chPath; renderTreemap(); };
+      tipify(hd, cellTip(ch, chSegs, viewTotal));
+      parent.appendChild(g);
+      renderChildren(ch, g.querySelector(".body"), r.w - 2, r.h - 2 - 17, chSegs, chPath, depth + 1);
+    }
+  }
+  renderChildren(root, tmEl, W, H, [], tmState.path, 0);
+
+  const hint = document.createElement("div");
+  hint.className = "tm-hint";
+  hint.textContent = "area = lines of code";
+  tmEl.appendChild(hint);
+
+  renderCrumbs();
+  renderTmSidebar(root);
+}
+
+function renderCrumbs() {
+  const c = $("#crumbs");
+  const parts = [MOD.get(tmState.pkg).dir, ...tmState.path];
+  c.innerHTML = parts.map((p, i) =>
+    i === parts.length - 1
+      ? `<span class="here">${esc(p)}</span>`
+      : `<button data-i="${i}">${esc(p)}</button><span class="sep">/</span>`).join("");
+  c.querySelectorAll("button").forEach((b) => (b.onclick = () => { tmState.path = tmState.path.slice(0, +b.dataset.i); renderTreemap(); }));
+}
+
+function collectFiles(node, prefix, out) {
+  for (const ch of node.c || []) {
+    if (ch.c) collectFiles(ch, prefix ? prefix + "/" + ch.n : ch.n, out);
+    else out.push({ path: prefix ? prefix + "/" + ch.n : ch.n, v: ch.v, e: ch.e });
+  }
+  return out;
+}
+
+function renderTmSidebar(root) {
+  const pkg = MOD.get(tmState.pkg);
+  const files = collectFiles(root, "", []);
+  const byType = {};
+  for (const f of files) byType[typeOf(f.e)] = (byType[typeOf(f.e)] || 0) + f.v;
+  const total = root.v || 1;
+  const m = META_MOD[tmState.pkg];
+  $("#tmInfo").innerHTML =
+    `<h4>current view</h4>
+     <div class="bigpath">${esc([pkg.dir, ...tmState.path].join("/"))}/</div>
+     ${tmState.path.length === 0 && m?.purpose ? `<p style="font-size:12px;color:var(--ink-2);margin-bottom:8px">${esc(m.purpose)}</p>` : ""}
+     <div class="kv"><span>lines of code</span><b>${fmtNum(root.v)}</b></div>
+     <div class="kv"><span>files</span><b>${fmtNum(root.f)}</b></div>
+     <div class="kv"><span>share of ${esc(pkg.dir)}</span><b>${((root.v / pkg.loc) * 100).toFixed(1)}%</b></div>
+     <div class="typebar">${TYPE_DEFS.filter(([k]) => byType[k]).map(([k, , v]) =>
+       `<div style="width:${((byType[k] / total) * 100).toFixed(2)}%;background:var(${v})"></div>`).join("")}</div>
+     ${TYPE_DEFS.filter(([k]) => byType[k]).map(([k, label, v]) =>
+       `<div class="typerow"><span class="sw" style="background:var(${v})"></span>${label}<b>${Math.round((byType[k] / total) * 100)}% · ${fmtLoc(byType[k])}</b></div>`).join("")}`;
+
+  files.sort((a, b) => b.v - a.v);
+  $("#topFiles").innerHTML = files.slice(0, 12).map((f) =>
+    `<li data-p="${esc(f.path)}"><span class="fp">${esc(f.path)}</span><span class="fl">${fmtLoc(f.v)}</span></li>`).join("");
+  $("#topFiles").querySelectorAll("li").forEach((li) => (li.onclick = () => {
+    const segs = li.dataset.p.split("/");
+    segs.pop();
+    tmState.path = [...tmState.path, ...segs];
+    renderTreemap();
+  }));
+}
+
+/* =========================================================
+   FACETS — data-driven extra tabs
+   ========================================================= */
+const BADGE_SLOTS = ["--slot-1", "--slot-8", "--slot-2", "--slot-5", "--slot-3"];
+
+function renderSection(sec, host) {
+  const card = document.createElement("div");
+  const bare = sec.kind === "tiles";
+  card.className = bare ? "" : "facet-card";
+  if (!bare && sec.title) card.innerHTML = `<h3>${esc(sec.title)}</h3>${sec.sub ? `<div class="sub">${escBadges(sec.sub, sec)}</div>` : ""}`;
+  host.appendChild(card);
+  const body = document.createElement("div");
+  card.appendChild(body);
+
+  if (sec.kind === "tiles") {
+    body.className = "tiles-row";
+    body.innerHTML = (sec.tiles || []).map((t) =>
+      `<div class="tile"><div class="v">${esc(t.v)}</div><div class="l">${esc(t.l)}</div><div class="s">${esc(t.s || "")}</div></div>`).join("");
+  } else if (sec.kind === "barlist") {
+    renderBarlist(sec, body);
+  } else if (sec.kind === "groups") {
+    body.className = "group-cols";
+    body.innerHTML = (sec.groups || []).map((g) =>
+      `<div class="db-group${g.accent ? " accent" : ""}"><h4>${esc(g.title)} <span class="cnt">${(g.chips || []).length}</span></h4>
+       <div class="tchips">${(g.chips || []).map((c) => `<span>${esc(c)}</span>`).join("")}</div></div>`).join("");
+  } else if (sec.kind === "tree") {
+    body.className = "rt-tree";
+    const badgeColor = badgeColors(sec);
+    const renderNode = (item, depth) => {
+      const badge = item.badge ? `<span class="rt-badge" style="--bc:var(${badgeColor(item.badge)})">${esc(item.badge)}</span>` : "";
+      if (!item.children?.length) return `<div class="rt-leaf"><span class="p">${esc(item.label)}</span>${badge}</div>`;
+      return `<details${depth < 1 ? " open" : ""}><summary>${esc(item.label)}${badge ? " " + badge : ""}</summary>` +
+        item.children.map((c) => renderNode(c, depth + 1)).join("") + `</details>`;
+    };
+    body.innerHTML = (sec.items || []).map((i) => renderNode(i, 0)).join("");
+  } else if (sec.kind === "loclist") {
+    body.innerHTML = "";
+    const ul = document.createElement("ul");
+    ul.className = "job-list";
+    const max = Math.max(1, ...(sec.rows || []).map((r) => r.bar ?? 0));
+    let html = "";
+    for (const r of sec.rows || []) {
+      if (r.section) { html += `</ul><h5 class="subhead">${esc(r.section)}</h5><ul class="job-list">`; continue; }
+      html += `<li${r.muted ? ` class="muted"` : ""}>
+        <span class="jn">${esc(r.label)}</span>
+        <span class="jm">${esc(r.meta || "")}</span>
+        ${r.bar != null ? `<span class="jbar"><div style="width:${((r.bar / max) * 100).toFixed(1)}%"></div></span>` : ""}
+      </li>`;
+    }
+    body.innerHTML = `<ul class="job-list">${html}</ul>`;
+  }
+}
+
+function badgeColors(sec) {
+  const seen = new Map();
+  (function scan(items) {
+    for (const i of items || []) {
+      if (i.badge && !seen.has(i.badge)) seen.set(i.badge, BADGE_SLOTS[seen.size % BADGE_SLOTS.length]);
+      scan(i.children);
+    }
+  })(sec.items);
+  return (b) => seen.get(b) || "--c-other";
+}
+function escBadges(s) { return esc(s); }
+
+function renderBarlist(sec, body) {
+  const series = sec.series || [];
+  body.innerHTML =
+    `<div class="chart-legend">${series.map((s, i) =>
+      `<span class="li"><span class="sw" style="background:var(${SLOTS[i % SLOTS.length]})"></span>${esc(s.label)}</span>`).join("")}
+      ${sec.note ? `<span class="li" style="color:var(--ink-3)">${esc(sec.note)}</span>` : ""}</div>
+     <div class="sortbar"><button data-k="value" class="on">by value</button><button data-k="name">a–z</button></div>
+     <div class="rbar-list"></div>`;
+  const list = body.querySelector(".rbar-list");
+  const total = (r) => series.reduce((s, sr) => s + (r.values[sr.k] || 0), 0);
+  let sortKey = "value";
+  const draw = () => {
+    const rows = [...(sec.rows || [])];
+    if (sortKey === "value") rows.sort((a, b) => total(b) - total(a));
+    else rows.sort((a, b) => a.label.localeCompare(b.label));
+    const max = Math.max(1, ...rows.map(total));
+    list.innerHTML = rows.map((r) => {
+      const segs = series.map((sr, i) => {
+        const v = r.values[sr.k] || 0;
+        return v ? `<div style="width:${((v / max) * 100).toFixed(2)}%;background:var(${SLOTS[i % SLOTS.length]})"></div>` : "";
+      }).join("");
+      return `<div class="rbar" data-label="${esc(r.label)}">
+        <div class="rn">${esc(r.label)}</div>
+        <div class="track">${segs}</div>
+        <div class="vals"><b>${total(r)}</b>${r.meta ? ` · ${esc(r.meta)}` : ""}</div>
+      </div>`;
+    }).join("");
+    list.querySelectorAll(".rbar").forEach((el) => {
+      const r = (sec.rows || []).find((x) => x.label === el.dataset.label);
+      if (r?.tip) tipify(el, esc(r.tip));
+    });
+  };
+  body.querySelector(".sortbar").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    sortKey = b.dataset.k;
+    body.querySelectorAll(".sortbar button").forEach((x) => x.classList.toggle("on", x === b));
+    draw();
+  });
+  draw();
+}
+
+const facetHost = $("#facetViews");
+for (const f of EMBED.facets) {
+  const sec = document.createElement("section");
+  sec.className = "view";
+  sec.id = "view-facet-" + f.id;
+  sec.innerHTML = `<div class="view-head"><h2>${esc(f.title)}${f.headline ? ` — <span style="font-weight:400">${esc(f.headline)}</span>` : ""}</h2>
+    ${f.sub ? `<div class="sub">${esc(f.sub)}</div>` : ""}</div>`;
+  const grid = document.createElement("div");
+  grid.className = "facet-grid" + (f.columns === 2 ? " cols-2" : "");
+  sec.appendChild(grid);
+  for (const s of f.sections || []) renderSection(s, grid);
+  facetHost.appendChild(sec);
+}
+
+/* ---------- boot ---------- */
+let resizeT;
+addEventListener("resize", () => {
+  clearTimeout(resizeT);
+  resizeT = setTimeout(() => {
+    if ($("#view-arch").classList.contains("active")) renderGraph();
+    if ($("#view-files").classList.contains("active")) renderTreemap();
+  }, 150);
+});
+renderArchPanel(null);
+const initial = location.hash.replace("#", "");
+switchTab(tabDefs.some((t) => t.id === initial) ? initial : "arch");
+</script>
+</body>
+</html>

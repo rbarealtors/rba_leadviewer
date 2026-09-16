@@ -1,0 +1,95 @@
+{
+  "runtimeStory": "RBA Lead Viewer ingests real estate leads across multiple channels: Google Ads webhooks, Meta Lead Gen webhooks (with HMAC verification and Graph API resolution), Google Sheets bridge forwarding, and portal email parsers (99acres and Magicbricks). Inbound leads are validated, phone-formatted to E.164, mapped against campaign/property aliases, deduplicated by (source, external_lead_id), and written directly into Supabase Postgres via the service-role client. Internal staff and admins authenticate through Supabase SSR cookie auth to view the lead table, filter by source/campaign/timeline/status, search by text, and manage sales rep assignments. Sales reps authenticate with a role check and a 4-digit PIN to access a mobile-optimized card feed constrained by Postgres Row Level Security (RLS) to only their assigned leads, updating lead dispositions and follow-up timelines.",
+  "flow": [
+    [
+      "1. Ingest",
+      "Webhooks receive leads from Google Ads, Meta Ads (HMAC verified), Sheets, or portal emails (99acres/Magicbricks)"
+    ],
+    [
+      "2. Normalize & Map",
+      "Payloads are parsed, normalized to uniform schema, phone numbers formatted to E.164, and campaign aliases resolved"
+    ],
+    [
+      "3. Deduplicate & Store",
+      "Leads are upserted into Supabase public.leads with unique constraints, read-only field triggers, and service role key"
+    ],
+    [
+      "4. Authenticate & Authorize",
+      "Next.js middleware and Supabase SSR enforce session auth, role routing (admin/staff/sales), and PIN checks"
+    ],
+    [
+      "5. Staff Triage & Assignment",
+      "Admin/staff view lead feed, inspect raw payloads in detail drawer, correct names, and assign to sales reps"
+    ],
+    [
+      "6. Sales Disposition",
+      "Sales reps view RLS-filtered mobile cards, trigger calls/WhatsApp, submit dispositions, and log follow-up dates"
+    ]
+  ],
+  "testSegments": [
+    "tests"
+  ],
+  "modules": {
+    "app": {
+      "purpose": "Next.js 15 App Router handling user interface pages (Leads, Sales, Users, Settings) and server API/webhook routes.",
+      "keyAreas": [
+        "src/app/leads \u2014 Interactive leads table with multi-criteria filters, search, quick actions, and detail drawer",
+        "src/app/sales \u2014 Mobile-optimized sales feed, PIN verification, disposition logging, and lead transfers",
+        "src/app/api/webhooks \u2014 Ingestion endpoints for Google Ads, Meta Graph API, Google Sheets, and Portal Emails",
+        "src/app/users \u2014 Admin-gated staff and sales rep user management (roles, sales PIN provisioning)",
+        "src/app/settings \u2014 Campaign, ad group, and property mapping configuration editor"
+      ],
+      "runtime": "Cloudflare Workers edge runtime via OpenNext adapter with Next.js SSR and Server Actions",
+      "testOnly": false
+    },
+    "components": {
+      "purpose": "Domain-specific and reusable UI components for lead presentation, quick drawers, and sales operations.",
+      "keyAreas": [
+        "src/components/leads/AddLeadDrawer.tsx \u2014 Slide-over drawer for manual lead creation",
+        "src/components/sales/LeadCard.tsx \u2014 Mobile-friendly card showing contact details, property info, and actions",
+        "src/components/sales/DispositionSheet.tsx \u2014 Bottom sheet for recording call outcomes and next follow-up dates",
+        "src/components/sales/PINEntryScreen.tsx \u2014 4-digit secure keypad for sales reps",
+        "src/components/sales/TransferModal.tsx \u2014 Modal to reassign leads between sales agents"
+      ],
+      "runtime": "Browser client (React 18 client components with Tailwind CSS styling)",
+      "testOnly": false
+    },
+    "lib": {
+      "purpose": "Core business logic: email parsers, payload normalizers, auth/RBAC policies, Supabase client factories, and formatters.",
+      "keyAreas": [
+        "src/lib/leads/email-parser-* \u2014 Inbound email HTML/text parsers for 99acres and Magicbricks portals",
+        "src/lib/leads/normalize-* \u2014 Normalization pipelines for Google Ads and Meta Graph API payloads",
+        "src/lib/leads/google-ads-map.ts \u2014 In-memory caching and resolution for campaign/property mappings",
+        "src/lib/auth \u2014 RBAC helper functions, requireAdmin guard, user management, and PIN verification",
+        "src/lib/supabase \u2014 Typed Supabase SSR client factories (browser, server cookies, service-role admin)"
+      ],
+      "runtime": "Node.js / Cloudflare Worker server-side execution with typed Supabase JS SDK",
+      "testOnly": false
+    },
+    "database": {
+      "purpose": "Supabase PostgreSQL database schema, migrations, Row Level Security (RLS) policies, and security definer RPCs.",
+      "keyAreas": [
+        "0001_init.sql \u2014 Base public.leads schema with unique constraint on (source, external_lead_id) and RLS",
+        "0004_allow_lead_name_edits.sql \u2014 Trigger function leads_protect_submitted_fields() defending immutable data",
+        "0005_add_property_mapping_type.sql \u2014 public.campaign_mappings table for alias resolutions",
+        "0006_add_lead_kpis_rpc.sql \u2014 get_lead_kpis() RPC computing totals, new, viewed, and source breakdown",
+        "0007_add_sales_assignment.sql \u2014 Lead assignment, disposition, status tracking columns",
+        "0008_sales_pin_rls.sql \u2014 Granular RLS policies restricting sales reps to assigned_to = auth.uid()"
+      ],
+      "runtime": "Supabase PostgreSQL database with PL/pgSQL triggers and pgcrypto",
+      "testOnly": false
+    },
+    "tests": {
+      "purpose": "Vitest test suite covering portal parsers, payload normalization, authorization guards, deduplication, and search filtering.",
+      "keyAreas": [
+        "tests/email-parser-*.test.ts \u2014 Unit tests for 99acres and Magicbricks email payload extraction",
+        "tests/normalize-*.test.ts \u2014 Tests for Google Ads and Meta Graph API data normalization",
+        "tests/authorization.test.ts & tests/user-management.test.ts \u2014 Auth guards and RBAC role tests",
+        "tests/dedup.test.ts & tests/formatters.test.ts \u2014 Lead deduplication logic and phone/date formatting tests",
+        "tests/portal-email-webhook.test.ts \u2014 End-to-end webhook ingestion route testing"
+      ],
+      "runtime": "Vitest test runner (local / CI)",
+      "testOnly": true
+    }
+  }
+}

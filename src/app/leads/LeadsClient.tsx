@@ -37,7 +37,7 @@ const MIN_COL_WIDTHS: Record<ColumnKey, number> = {
 
 type DatePreset = "today" | "yesterday" | "last7" | "last7days" | "last30" | "last30days" | "thisMonth" | "all" | "custom";
 type SortKey = "time" | "name" | "budget" | "bhk";
-type ViewMode = "all" | "new";
+type ViewMode = "all" | "new" | "needs_review";
 
 const DASH = "—";
 
@@ -387,6 +387,7 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
     } else {
       result = leads.filter((lead) => {
         if (view === "new" && lead.viewed_at) return false;
+        if (view === "needs_review" && !lead.needs_staff_review) return false;
         if (source !== "all" && lead.source !== source) return false;
         if (campaign !== "all" && lead.campaign_name !== campaign) return false;
         if (adGroup !== "all" && lead.ad_group_name !== adGroup) return false;
@@ -446,6 +447,7 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
   const metaCount = filtered.filter((l) => l.source === "meta_ads").length;
   const acresCount = filtered.filter((l) => l.source === "99acres").length;
   const mbCount = filtered.filter((l) => l.source === "magicbricks").length;
+  const needsReviewCount = leads.filter((l) => l.needs_staff_review && (source === "all" || l.source === source) && matchesDatePreset(l.source_submitted_at, datePreset, customFrom, customTo)).length;
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -626,8 +628,20 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
             New
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${view === "new" ? "bg-white/60" : "bg-canvas border border-line"}`}>{kpiNew}</span>
             <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${view === "new" ? "bg-white/60" : "bg-canvas border border-line"}`}>{newCount}</span>
+          </button>
+
+          <button
+            onClick={() => setView(view === "needs_review" ? "all" : "needs_review")}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border shadow-2xs ${
+              view === "needs_review"
+                ? "bg-rose-50 text-rose-700 border-rose-200"
+                : "bg-panel text-ink hover:bg-canvas border-line"
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+            Needs review
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${view === "needs_review" ? "bg-white/60" : "bg-canvas border border-line"}`}>{needsReviewCount}</span>
           </button>
 
           <div className="w-px h-5 bg-line mx-1" />

@@ -8,7 +8,8 @@ export function AppHeader({ email, isAdmin }: { email?: string; isAdmin: boolean
   const pathname = usePathname() ?? "";
   const isUsers = pathname.startsWith("/users");
   const isSettings = pathname.startsWith("/settings");
-  const isLeads = pathname.startsWith("/leads") || (!isUsers && !isSettings && pathname === "/");
+  const isReports = pathname.startsWith("/reports");
+  const isLeads = pathname.startsWith("/leads") || (!isUsers && !isSettings && !isReports && pathname === "/");
 
   return (
     <header className="border-b border-line bg-panel">
@@ -50,6 +51,16 @@ export function AppHeader({ email, isAdmin }: { email?: string; isAdmin: boolean
                 }`}
               >
                 Leads
+              </Link>
+              <Link
+                href="/reports/attribution"
+                className={`h-full flex items-center border-b-2 transition-colors ${
+                  isReports
+                    ? "text-accent border-accent"
+                    : "text-subtle hover:text-ink border-transparent"
+                }`}
+              >
+                Reports
               </Link>
               <Link
                 href="/users"

@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export interface LoginState {
@@ -28,6 +29,14 @@ export async function signIn(_prevState: LoginState, formData: FormData): Promis
 
 export async function signOut() {
   const supabase = await createSupabaseServerClient();
+  const cookieStore = await cookies();
+  cookieStore.delete("sales_pin_verified");
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+export async function lockSalesSession() {
+  const cookieStore = await cookies();
+  cookieStore.delete("sales_pin_verified");
+  redirect("/sales");
 }

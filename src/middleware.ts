@@ -2,9 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type SetAllCookies } from "@supabase/ssr";
 
 // Public routes that must remain reachable without a session: the login
-// page itself, and the two ad-platform webhook endpoints (Google/Meta hit
-// these directly and authenticate via their own secrets, not a cookie).
-const PUBLIC_PATHS = ["/login", "/api/webhooks/google-ads", "/api/webhooks/meta"];
+// page itself, ad-platform webhook endpoints, and PWA manifest / icon assets.
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/webhooks/google-ads",
+  "/api/webhooks/meta",
+  "/manifest.webmanifest",
+  "/manifest.json",
+  "/icon.svg",
+  "/icon-192.png",
+  "/icon-512.png",
+];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some(
@@ -68,9 +76,9 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all paths except static assets, so every page and every
-     * (non-webhook) API route is protected server-side by default.
+     * Match all paths except static assets, media, icons, and webmanifest,
+     * so every page and every (non-webhook) API route is protected server-side by default.
      */
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest\\.webmanifest|manifest\\.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|json|webmanifest)$).*)",
   ],
 };

@@ -1,0 +1,550 @@
+{
+  "facets": [
+    {
+      "id": "routes",
+      "nav": "Routes & Endpoints",
+      "title": "Application Routes & Webhooks",
+      "headline": "9 route handlers · 6 App Router pages · 11 server actions",
+      "sub": "Next.js App Router routing & ingestion surface",
+      "hero": {
+        "v": "15",
+        "l": "Total Routes",
+        "s": "9 API · 6 Pages"
+      },
+      "columns": 2,
+      "sections": [
+        {
+          "kind": "tree",
+          "title": "Route Tree & Handlers",
+          "sub": "src/app hierarchy",
+          "items": [
+            {
+              "label": "webhooks (inbound ingestion)",
+              "badge": "webhook",
+              "children": [
+                {
+                  "label": "google-ads — POST (Secret Header)",
+                  "badge": "webhook"
+                },
+                {
+                  "label": "meta — GET (Verify) · POST (HMAC)",
+                  "badge": "webhook"
+                },
+                {
+                  "label": "google-sheets — POST (Bridge Ingestion)",
+                  "badge": "webhook"
+                },
+                {
+                  "label": "portal-email — POST (99acres & Magicbricks)",
+                  "badge": "webhook"
+                }
+              ]
+            },
+            {
+              "label": "api (internal endpoints)",
+              "badge": "internal",
+              "children": [
+                {
+                  "label": "leads/assigned-to-me — GET",
+                  "badge": "sales"
+                },
+                {
+                  "label": "leads/[id] — PATCH",
+                  "badge": "internal"
+                },
+                {
+                  "label": "leads/[id]/assign — PATCH",
+                  "badge": "staff"
+                },
+                {
+                  "label": "auth/verify-pin — POST",
+                  "badge": "auth"
+                },
+                {
+                  "label": "settings/campaign-mappings — GET · POST · DELETE",
+                  "badge": "admin"
+                }
+              ]
+            },
+            {
+              "label": "pages (UI routes)",
+              "badge": "page",
+              "children": [
+                {
+                  "label": "/ — Root Redirect (/leads or /sales)",
+                  "badge": "page"
+                },
+                {
+                  "label": "/login — Staff & Sales Authentication",
+                  "badge": "page"
+                },
+                {
+                  "label": "/leads — Full Lead Viewer & Drawer (Staff/Admin)",
+                  "badge": "page"
+                },
+                {
+                  "label": "/sales — PIN Guard & Mobile Feed (Sales)",
+                  "badge": "page"
+                },
+                {
+                  "label": "/users — User & Role Administration (Admin)",
+                  "badge": "page"
+                },
+                {
+                  "label": "/settings/campaign-mappings — Campaign Alias Mapping (Admin)",
+                  "badge": "page"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "barlist",
+          "title": "API Routes by Code Complexity (LOC)",
+          "note": "Hover for implementation file",
+          "series": [
+            {
+              "k": "loc",
+              "label": "Lines of Code"
+            }
+          ],
+          "rows": [
+            {
+              "label": "webhooks/portal-email",
+              "values": {
+                "loc": 175
+              },
+              "meta": "POST · 175 LOC",
+              "tip": "src/app/api/webhooks/portal-email/route.ts · Auth: Secret Header"
+            },
+            {
+              "label": "webhooks/meta",
+              "values": {
+                "loc": 143
+              },
+              "meta": "GET, POST · 143 LOC",
+              "tip": "src/app/api/webhooks/meta/route.ts · Auth: HMAC SHA256 / Token"
+            },
+            {
+              "label": "settings/campaign-mappings",
+              "values": {
+                "loc": 137
+              },
+              "meta": "GET, POST, DELETE · 137 LOC",
+              "tip": "src/app/api/settings/campaign-mappings/route.ts · Auth: Staff / Admin"
+            },
+            {
+              "label": "webhooks/google-sheets",
+              "values": {
+                "loc": 104
+              },
+              "meta": "POST · 104 LOC",
+              "tip": "src/app/api/webhooks/google-sheets/route.ts · Auth: Secret Header"
+            },
+            {
+              "label": "webhooks/google-ads",
+              "values": {
+                "loc": 85
+              },
+              "meta": "POST · 85 LOC",
+              "tip": "src/app/api/webhooks/google-ads/route.ts · Auth: Secret Header"
+            },
+            {
+              "label": "leads/[id]",
+              "values": {
+                "loc": 51
+              },
+              "meta": "PATCH · 51 LOC",
+              "tip": "src/app/api/leads/[id]/route.ts · Auth: Staff / Sales (RLS)"
+            },
+            {
+              "label": "leads/assigned-to-me",
+              "values": {
+                "loc": 40
+              },
+              "meta": "GET · 40 LOC",
+              "tip": "src/app/api/leads/assigned-to-me/route.ts · Auth: Sales Session (RLS)"
+            },
+            {
+              "label": "leads/[id]/assign",
+              "values": {
+                "loc": 30
+              },
+              "meta": "PATCH · 30 LOC",
+              "tip": "src/app/api/leads/[id]/assign/route.ts · Auth: Staff / Admin"
+            },
+            {
+              "label": "auth/verify-pin",
+              "values": {
+                "loc": 2
+              },
+              "meta": "POST · 2 LOC",
+              "tip": "src/app/api/auth/verify-pin/route.ts · Auth: Authenticated Rep"
+            }
+          ]
+        },
+        {
+          "kind": "groups",
+          "title": "Server Actions (RPCs)",
+          "groups": [
+            {
+              "title": "Lead Management (actions.ts)",
+              "chips": [
+                "markAsViewed",
+                "updateLeadName"
+              ],
+              "accent": false
+            },
+            {
+              "title": "Lead Assignment (assignment-actions.ts)",
+              "chips": [
+                "assignLeadAction",
+                "getAssignableSalesRepsAction"
+              ],
+              "accent": false
+            },
+            {
+              "title": "Sales Dispositions (sales-actions.ts)",
+              "chips": [
+                "updateLeadStatusAndDispositionAction",
+                "transferLeadAction"
+              ],
+              "accent": true
+            },
+            {
+              "title": "Authentication (actions.ts)",
+              "chips": [
+                "loginAction",
+                "logoutAction"
+              ],
+              "accent": false
+            },
+            {
+              "title": "User & PIN Admin (actions.ts)",
+              "chips": [
+                "createUserAction",
+                "updateUserRoleAction",
+                "setSalesPinAction",
+                "deleteUserAction"
+              ],
+              "accent": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "database",
+      "nav": "Database & Security",
+      "title": "PostgreSQL Schema & Security Architecture",
+      "headline": "2 tables · 8 migrations · 4 RLS policies · 1 trigger · 1 RPC",
+      "sub": "Supabase Postgres with Row Level Security",
+      "hero": {
+        "v": "4",
+        "l": "RLS Policies",
+        "s": "Admin/Staff/Sales"
+      },
+      "columns": 2,
+      "sections": [
+        {
+          "kind": "tiles",
+          "tiles": [
+            {
+              "v": "2",
+              "l": "Postgres Tables",
+              "s": "leads · campaign_mappings"
+            },
+            {
+              "v": "8",
+              "l": "Migrations",
+              "s": "0001 to 0008"
+            },
+            {
+              "v": "5",
+              "l": "Lead Sources",
+              "s": "Google · Meta · Sheets · 99acres · Magicbricks"
+            },
+            {
+              "v": "4",
+              "l": "RLS Policies",
+              "s": "Staff full · Rep assigned"
+            }
+          ]
+        },
+        {
+          "kind": "groups",
+          "title": "Database Schema & Constraints",
+          "groups": [
+            {
+              "title": "public.leads (Core Lead Entity)",
+              "chips": [
+                "id (uuid pk)",
+                "source (check constraint)",
+                "external_lead_id",
+                "full_name",
+                "phone_number",
+                "email",
+                "campaign_name",
+                "ad_group_name",
+                "ad_name",
+                "budget_range",
+                "bhk_configuration",
+                "planning_timeline",
+                "platform",
+                "source_submitted_at",
+                "created_at",
+                "viewed_at",
+                "assigned_to (uuid)",
+                "assigned_at",
+                "lead_status",
+                "disposition",
+                "disposition_details",
+                "next_follow_up",
+                "raw_payload (jsonb)"
+              ]
+            },
+            {
+              "title": "public.campaign_mappings (Aliases)",
+              "chips": [
+                "id (text pk)",
+                "type (campaign|adgroup|property)",
+                "display_name",
+                "created_at",
+                "updated_at"
+              ]
+            },
+            {
+              "title": "Database Indices & Uniqueness",
+              "chips": [
+                "unique (source, external_lead_id)",
+                "leads_source_submitted_at_desc_idx",
+                "leads_source_idx",
+                "leads_campaign_name_idx",
+                "leads_ad_group_name_idx",
+                "leads_viewed_at_idx"
+              ]
+            },
+            {
+              "title": "Row Level Security (RLS) Policies",
+              "accent": true,
+              "chips": [
+                "Admin and staff full access (FOR ALL on leads)",
+                "Sales reps assigned leads select (FOR SELECT where assigned_to = auth.uid())",
+                "Sales reps assigned leads update (FOR UPDATE where assigned_to = auth.uid())",
+                "allow select campaign_mappings (FOR SELECT to public/staff)"
+              ]
+            },
+            {
+              "title": "Security Triggers & Stored Procedures",
+              "chips": [
+                "leads_protect_submitted_fields() — Prevents mutations to submitted data (source, phone, raw_payload)",
+                "get_lead_kpis() — SECURITY DEFINER JSON aggregator for total, new, viewed & source stats"
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "loclist",
+          "title": "PostgreSQL Migration History",
+          "sub": "supabase/migrations",
+          "rows": [
+            {
+              "label": "0001_init.sql",
+              "meta": "127 LOC",
+              "bar": 127
+            },
+            {
+              "label": "0002_add_sheets_bridge_source.sql",
+              "meta": "7 LOC",
+              "bar": 7
+            },
+            {
+              "label": "0003_add_portal_sources.sql",
+              "meta": "9 LOC",
+              "bar": 9
+            },
+            {
+              "label": "0004_allow_lead_name_edits.sql",
+              "meta": "28 LOC",
+              "bar": 28
+            },
+            {
+              "label": "0005_add_property_mapping_type.sql",
+              "meta": "21 LOC",
+              "bar": 21
+            },
+            {
+              "label": "0006_add_lead_kpis_rpc.sql",
+              "meta": "17 LOC",
+              "bar": 17
+            },
+            {
+              "label": "0007_add_sales_assignment.sql",
+              "meta": "37 LOC",
+              "bar": 37
+            },
+            {
+              "label": "0008_sales_pin_rls.sql",
+              "meta": "45 LOC",
+              "bar": 45
+            },
+            {
+              "label": "0009_followup_tracking.sql",
+              "meta": "19 LOC",
+              "bar": 19
+            },
+            {
+              "label": "0010_sales_workflow_foundation.sql",
+              "meta": "201 LOC",
+              "bar": 201
+            },
+            {
+              "label": "0011_disposition_history.sql",
+              "meta": "183 LOC",
+              "bar": 183
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pipelines",
+      "nav": "Pipelines & Lib",
+      "title": "Lead Ingestion Pipelines & Utilities",
+      "headline": "4 ingestion pipelines · 2 email parsers · RBAC & Auth helpers",
+      "sub": "src/lib modular business logic",
+      "hero": {
+        "v": "4",
+        "l": "Ingestion Pipelines",
+        "s": "Google · Meta · 99acres · MB"
+      },
+      "columns": 2,
+      "sections": [
+        {
+          "kind": "loclist",
+          "title": "Lead Processing & Parsing Libraries",
+          "sub": "src/lib/leads",
+          "rows": [
+            {
+              "label": "email-parser-99acres.ts (HTML & plain-text regex parser)",
+              "meta": "322 LOC",
+              "bar": 322
+            },
+            {
+              "label": "email-parser-magicbricks.ts (Multi-format portal parser)",
+              "meta": "188 LOC",
+              "bar": 188
+            },
+            {
+              "label": "formatters.ts (Date, phone, badge & payload formatters)",
+              "meta": "197 LOC",
+              "bar": 197
+            },
+            {
+              "label": "google-ads-map.ts (Dynamic alias resolution cache)",
+              "meta": "136 LOC",
+              "bar": 136
+            },
+            {
+              "label": "normalize-meta.ts (Graph API leadgen payload adapter)",
+              "meta": "116 LOC",
+              "bar": 116
+            },
+            {
+              "label": "normalize-google.ts (Google Ads webhook field mapper)",
+              "meta": "105 LOC",
+              "bar": 105
+            },
+            {
+              "label": "search.ts (Client-side lead filtering & search predicate)",
+              "meta": "33 LOC",
+              "bar": 33
+            },
+            {
+              "label": "phone.ts (E.164 phone sanitization & formatting)",
+              "meta": "12 LOC",
+              "bar": 12
+            },
+            {
+              "section": "Authentication & Client Infrastructure"
+            },
+            {
+              "label": "user-management-logic.ts (User CRUD & PIN management)",
+              "meta": "171 LOC",
+              "bar": 171
+            },
+            {
+              "label": "time.ts (IST timezone conversions & formatting)",
+              "meta": "91 LOC",
+              "bar": 91
+            },
+            {
+              "label": "verify-signature.ts (Meta HMAC SHA256 verification)",
+              "meta": "41 LOC",
+              "bar": 41
+            },
+            {
+              "label": "supabase/server.ts (Server-side Supabase SSR client)",
+              "meta": "40 LOC",
+              "bar": 40
+            },
+            {
+              "label": "supabase/admin.ts (Service role client for webhooks)",
+              "meta": "27 LOC",
+              "bar": 27
+            }
+          ]
+        },
+        {
+          "kind": "groups",
+          "title": "Lead Lifecycle States & Data Normalization",
+          "groups": [
+            {
+              "title": "Ingestion Sources",
+              "chips": [
+                "Google Ads Webhook",
+                "Meta Lead Ads (Graph API)",
+                "Facebook Sheets Bridge",
+                "99acres Portal Email",
+                "Magicbricks Portal Email"
+              ]
+            },
+            {
+              "title": "Lead Status Workflow",
+              "chips": [
+                "NEW (Unviewed)",
+                "VIEWED",
+                "CONTACTED",
+                "INTERESTED",
+                "SITE_VISIT_SCHEDULED",
+                "NOT_INTERESTED",
+                "INVALID / SPAM"
+              ]
+            },
+            {
+              "title": "Sales Dispositions",
+              "accent": true,
+              "chips": [
+                "Connected - Follow Up",
+                "Connected - Site Visit",
+                "Connected - Not Interested",
+                "RNR (Ring No Response)",
+                "Busy / Call Later",
+                "Switch Off / Unreachable",
+                "Wrong Number"
+              ]
+            },
+            {
+              "title": "User Roles & Access Control",
+              "chips": [
+                "admin (Full user/mapping/lead access)",
+                "staff (Lead triage, name edit, assignment)",
+                "sales (Assigned leads only, PIN gated)"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

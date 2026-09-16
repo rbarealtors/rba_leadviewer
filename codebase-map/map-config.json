@@ -1,0 +1,65 @@
+{
+  "repo": "h:/kingshuk/New folder/rba-leadviewer/rba_leadviewer",
+  "repo": "h:/kingshuk/programmes/rba-leadviewer/rba_leadviewer",
+  "title": "RBA Lead Viewer",
+  "subtitle": "RBA REALTORS · LEAD INGESTION & DISPOSITION ATLAS · NEXT.JS + SUPABASE",
+  "out": "rba-leadviewer-map.html",
+  "branch": "main",
+  "topKinds": [
+    "app"
+  ],
+  "stripKinds": [],
+  "excludeDirs": [
+    "codebase-map",
+    ".next",
+    ".open-next",
+    ".wrangler"
+  ],
+  "modules": [
+    {
+      "id": "app",
+      "path": "src/app",
+      "kind": "app",
+      "name": "App Router (Pages & API)",
+      "deps": [
+        "components",
+        "lib"
+      ]
+    },
+    {
+      "id": "components",
+      "path": "src/components",
+      "kind": "ui",
+      "name": "UI Components",
+      "deps": [
+        "lib"
+      ]
+    },
+    {
+      "id": "lib",
+      "path": "src/lib",
+      "kind": "library",
+      "name": "Core Library & Services",
+      "deps": [
+        "database"
+      ]
+    },
+    {
+      "id": "database",
+      "path": "supabase/migrations",
+      "kind": "database",
+      "name": "Supabase Postgres & RLS",
+      "deps": []
+    },
+    {
+      "id": "tests",
+      "path": "tests",
+      "kind": "test",
+      "name": "Vitest Test Suites",
+      "deps": [
+        "lib",
+        "app"
+      ]
+    }
+  ]
+}

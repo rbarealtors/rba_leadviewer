@@ -49,7 +49,15 @@ export async function assignLead(
     return { error: "Not signed in." };
   }
 
-  const { error } = await supabase
+  if (user.app_metadata?.role === "sales") {
+    return { error: "Only staff or administrators can assign leads." };
+  }
+
+  const admin = createSupabaseAdminClient();
+
+  const { data: lead } = await admin.from("leads").select("assigned_to").eq("id", leadId).single();
+
+  const { error } = await admin
     .from("leads")
     .update({
       assigned_to: userId,
@@ -60,6 +68,33 @@ export async function assignLead(
 
   if (error) {
     return { error: "Could not assign lead." };
+  }
+
+  if (userId) {
+    await admin.from("lead_assignments").insert({
+      lead_id: leadId,
+      assigned_by: user.id,
+      assigned_to: userId,
+      previous_assigned_to: lead?.assigned_to || null,
+      reason: "Manual assignment"
+    });
+
+    await admin.from("lead_activities").insert({
+      lead_id: leadId,
+      user_id: user.id,
+      type: "lead_assigned",
+      title: "Lead Assigned",
+      description: "Lead was manually assigned.",
+      details: { assigned_to: userId, previous_assigned_to: lead?.assigned_to }
+    });
+
+    await admin.from("notifications").insert({
+      user_id: userId,
+      lead_id: leadId,
+      type: "lead_assigned",
+      title: "New Lead Assigned",
+      body: "A new lead has been assigned to you."
+    });
   }
 
   revalidatePath("/leads");
