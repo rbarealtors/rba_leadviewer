@@ -9,7 +9,6 @@ import {
   resolvePropertyName,
 } from "@/lib/leads/google-ads-map";
 
-
 export const dynamic = "force-dynamic";
 
 export default async function LeadsPage() {
@@ -26,7 +25,7 @@ export default async function LeadsPage() {
   const query = supabase
     .from("leads")
     .select(
-      "id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload, assigned_to, assigned_at, lead_status, disposition, disposition_details, next_follow_up"
+      "id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload, assigned_to, assigned_at, lead_status, disposition, disposition_details, next_follow_up, lead_stage, token_amount, closed_at, needs_staff_review, platform"
     )
     .order("source_submitted_at", { ascending: false })
     .range(0, 49);
@@ -95,7 +94,12 @@ export default async function LeadsPage() {
         {error ? (
           <p className="text-sm text-red-600">Could not load leads. Please refresh.</p>
         ) : (
-          <LeadsClient initialLeads={leads} kpiCounts={kpiCounts} totalCount={totalCount} />
+          <LeadsClient
+            initialLeads={leads}
+            kpiCounts={kpiCounts}
+            totalCount={totalCount}
+            userRole={user?.app_metadata?.role || "staff"}
+          />
         )}
       </main>
     </div>

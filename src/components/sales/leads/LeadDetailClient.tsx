@@ -3,13 +3,12 @@
 import { useState } from "react";
 import type { Lead, SiteVisit, LeadActivity, LeadDispositionHistory } from "@/lib/leads/types";
 import { formatDateTime } from "@/lib/date-utils";
-import { PhoneIcon, CalendarIcon, MapPinIcon, ClockIcon, TagIcon } from "../icons";
+import { PhoneIcon, CalendarIcon, MapPinIcon, ClockIcon } from "../icons";
 import { LogContactSheet } from "../actions/LogContactSheet";
 import { ScheduleVisitSheet } from "../actions/ScheduleVisitSheet";
 import { UpdateVisitSheet } from "../actions/UpdateVisitSheet";
 import { StartBookingSheet } from "../actions/StartBookingSheet";
 import { RecordTokenModal } from "../actions/RecordTokenModal";
-import { ChangeDispositionSheet } from "../actions/ChangeDispositionSheet";
 import { ManageFollowUpSheet } from "../actions/ManageFollowUpSheet";
 
 interface LeadDetailClientProps {
@@ -45,7 +44,6 @@ export function LeadDetailClient({
     | "updateVisit"
     | "startBooking"
     | "token"
-    | "disposition"
     | "followUp"
     | null
   >(null);
@@ -110,7 +108,6 @@ export function LeadDetailClient({
         </div>
       </header>
 
-      {/* 2. Next Action */}
       {/* 2. Next Action Hero */}
       {nextAction && (
         <div className="px-6 -mt-3 relative z-10">
@@ -130,51 +127,25 @@ export function LeadDetailClient({
         </div>
       )}
 
-      {/* 3. CRM Controls: Canonical Disposition & Follow-Up */}
+      {/* 3. Follow-Up Schedule */}
       <div className="px-6 pt-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3.5">
-          {/* CRM Disposition */}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                CRM Disposition
-              </p>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-2 h-2 rounded-full bg-blue-600" />
-                <span className="font-bold text-slate-900 text-sm">
-                  {lead.crm_disposition || "Not Contacted"}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveSheet("disposition")}
-              className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
-            >
-              <TagIcon className="w-3.5 h-3.5" />
-              Change
-            </button>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Follow-Up Call
+            </p>
+            <p className="text-xs font-semibold text-slate-700 mt-0.5">
+              {lead.next_follow_up ? formatDateTime(lead.next_follow_up) : "None scheduled"}
+            </p>
           </div>
-
-          {/* Next Follow-Up */}
-          <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Follow-Up Call
-              </p>
-              <p className="text-xs font-semibold text-slate-700 mt-0.5">
-                {lead.next_follow_up ? formatDateTime(lead.next_follow_up) : "None scheduled"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveSheet("followUp")}
-              className="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
-            >
-              <ClockIcon className="w-3.5 h-3.5" />
-              {lead.next_follow_up ? "Manage" : "Schedule"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveSheet("followUp")}
+            className="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+          >
+            <ClockIcon className="w-3.5 h-3.5" />
+            {lead.next_follow_up ? "Manage" : "Schedule"}
+          </button>
         </div>
       </div>
 
@@ -359,13 +330,6 @@ export function LeadDetailClient({
       )}
       {activeSheet === "token" && (
         <RecordTokenModal leadId={lead.id} onClose={() => setActiveSheet(null)} />
-      )}
-      {activeSheet === "disposition" && (
-        <ChangeDispositionSheet
-          leadId={lead.id}
-          currentDisposition={lead.crm_disposition}
-          onClose={() => setActiveSheet(null)}
-        />
       )}
       {activeSheet === "followUp" && (
         <ManageFollowUpSheet

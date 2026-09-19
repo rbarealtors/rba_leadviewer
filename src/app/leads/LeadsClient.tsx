@@ -12,6 +12,7 @@ import { PhoneCell } from "./PhoneCell";
 import { LeadDetailDrawer } from "./LeadDetailDrawer";
 import { AddLeadDrawer } from "@/components/leads/AddLeadDrawer";
 import { getSalesTeam, assignLead, type SalesRep } from "./assignment-actions";
+import { exportLeadsToCsv } from "@/lib/leads/export-csv";
 
 type ColumnKey = "time" | "source" | "name" | "phone" | "campaign" | "assigned" | "status";
 
@@ -172,13 +173,24 @@ interface LeadToast {
   message?: string;
 }
 
-export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalCount }: { initialLeads: Lead[], kpiCounts: any, totalCount: number }) {
+export function LeadsClient({
+  initialLeads,
+  kpiCounts,
+  totalCount: initialTotalCount,
+  userRole = "staff",
+}: {
+  initialLeads: Lead[];
+  kpiCounts: any;
+  totalCount: number;
+  userRole?: string;
+}) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const leadsRef = useRef<Lead[]>(initialLeads);
   const [highlightedRows, setHighlightedRows] = useState<Set<string>>(new Set());
   const [toasts, setToasts] = useState<LeadToast[]>([]);
   const [salesTeam, setSalesTeam] = useState<SalesRep[]>([]);
+  const [isBackgroundFetching, setIsBackgroundFetching] = useState<boolean>(false);
 
   useEffect(() => {
     getSalesTeam().then(({ data }) => {
@@ -193,28 +205,36 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
       const targetTotal = initialTotalCount || kpiCounts?.total || kpiCounts?.total_count || 0;
       if (leadsRef.current.length >= targetTotal) return;
       let currentLength = leadsRef.current.length;
-      
-      while (currentLength < targetTotal && isMounted) {
-        const { data, error } = await supabase
-          .from("leads")
-          .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload, assigned_to, assigned_at, lead_status, disposition, disposition_details, next_follow_up")
-          .order("source_submitted_at", { ascending: false })
-          .range(currentLength, currentLength + 499);
+      try {
+        while (currentLength < targetTotal && isMounted) {
+          const { data, error } = await supabase
+            .from("leads")
+            .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload, assigned_to, assigned_at, lead_status, disposition, disposition_details, next_follow_up, lead_stage, token_amount, closed_at, needs_staff_review, platform")
+            .order("source_submitted_at", { ascending: false })
+            .range(currentLength, currentLength + 499);
+            
+          if (error || !data || data.length === 0) break;
           
-        if (error || !data || data.length === 0) break;
-        
-        setLeads((prev) => {
-          const combined = [...prev, ...(data as Lead[])];
-          const unique = combined.filter((v, i, a) => a.findIndex((t) => t.id === v.id) === i);
-          return unique.sort(
-            (a, b) => new Date(b.source_submitted_at).getTime() - new Date(a.source_submitted_at).getTime()
-          );
-        });
-        currentLength += data.length;
+          setLeads((prev) => {
+            const combined = [...prev, ...(data as Lead[])];
+            const unique = combined.filter((v, i, a) => a.findIndex((t) => t.id === v.id) === i);
+            return unique.sort(
+              (a, b) => new Date(b.source_submitted_at).getTime() - new Date(a.source_submitted_at).getTime()
+            );
+          });
+          currentLength += data.length;
+        }
+      } finally {
+        if (isMounted) {
+          setIsBackgroundFetching(false);
+        }
       }
     }
     fetchRemaining();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+      setIsBackgroundFetching(false);
+    };
   }, [initialTotalCount, kpiCounts, supabase]);
 
   useEffect(() => {
@@ -286,7 +306,7 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
 
       const { data } = await supabase
         .from("leads")
-        .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload, assigned_to, assigned_at, lead_status, disposition, disposition_details, next_follow_up")
+        .select("id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload, assigned_to, assigned_at, lead_status, disposition, disposition_details, next_follow_up, lead_stage, token_amount, closed_at, needs_staff_review, platform")
         .gt("source_submitted_at", maxCreated)
         .order("source_submitted_at", { ascending: false });
 
@@ -567,6 +587,51 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
     return { error: null };
   }
 
+  const [isExporting, setIsExporting] = useState(false);
+  const canExport = userRole !== "sales";
+
+  const targetTotalLeads = initialTotalCount || kpiCounts?.total || kpiCounts?.total_count || 0;
+  const isFetchComplete = leads.length >= targetTotalLeads;
+  const isSelectedExport = selectedIds.size > 0;
+
+  // When exporting filtered dataset (no selection), export is disabled while background fetch is running
+  const isExportDisabled =
+    isExporting ||
+    (!isSelectedExport && (isBackgroundFetching || filtered.length === 0));
+
+  let exportButtonLabel = "Export CSV";
+  let exportTooltip = `Export ${filtered.length} filtered leads to CSV`;
+
+  if (isSelectedExport) {
+    exportButtonLabel = `Export Selected (${selectedIds.size})`;
+    exportTooltip = `Export ${selectedIds.size} selected leads to CSV`;
+  } else if (isBackgroundFetching && !isFetchComplete) {
+    exportButtonLabel = `Syncing (${leads.length}/${targetTotalLeads})...`;
+    exportTooltip = `Loading remaining leads in background before export is ready (${leads.length} of ${targetTotalLeads} loaded)...`;
+  } else if (filtered.length === 0) {
+    exportButtonLabel = "Export CSV";
+    exportTooltip = "No leads match current filters to export";
+  } else {
+    exportButtonLabel = `Export (${filtered.length})`;
+    exportTooltip = `Export ${filtered.length} filtered leads to CSV`;
+  }
+
+  const handleExport = () => {
+    if (isExportDisabled) return;
+    try {
+      setIsExporting(true);
+      if (isSelectedExport) {
+        const selectedLeads = leads.filter((l) => selectedIds.has(l.id));
+        exportLeadsToCsv(selectedLeads, salesTeam, "selected");
+      } else {
+        exportLeadsToCsv(filtered, salesTeam, datePreset);
+      }
+    } catch (err) {
+      console.error("Export failed:", err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -591,15 +656,48 @@ export function LeadsClient({ initialLeads, kpiCounts, totalCount: initialTotalC
         customTo={customTo}
         onCustomTo={setCustomTo}
         rightActions={
-          <button
-            onClick={() => setIsAddLeadOpen(true)}
-            className="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium py-2 px-4 rounded-md transition-colors shadow-2xs"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Add Lead
-          </button>
+          <div className="flex items-center gap-2">
+            {canExport && (
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={isExportDisabled}
+                className={`inline-flex items-center gap-1.5 border rounded-md text-sm font-medium py-2 px-3 transition-colors shadow-2xs ${
+                  isExportDisabled
+                    ? "bg-canvas text-subtle border-line cursor-not-allowed opacity-70"
+                    : isSelectedExport
+                    ? "bg-accent-soft text-accent border-accent/40 hover:bg-accent hover:text-white"
+                    : "bg-panel text-ink hover:bg-canvas border-line"
+                }`}
+                title={exportTooltip}
+                aria-label={exportTooltip}
+              >
+                {isExporting || (isBackgroundFetching && !isSelectedExport && !isFetchComplete) ? (
+                  <svg className="w-4 h-4 animate-spin text-subtle" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 text-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                )}
+                <span>{exportButtonLabel}</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setIsAddLeadOpen(true)}
+              className="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium py-2 px-4 rounded-md transition-colors shadow-2xs"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Add Lead
+            </button>
+          </div>
         }
       />
 

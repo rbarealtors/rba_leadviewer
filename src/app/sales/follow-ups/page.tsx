@@ -15,7 +15,7 @@ export default async function FollowUpsPage() {
   // Fetch leads assigned to current sales rep that have a scheduled next_follow_up and are not closed
   const { data: rawLeads } = await supabase
     .from("leads")
-    .select("id, full_name, phone_number, lead_stage, crm_disposition, next_follow_up, assigned_at, source")
+    .select("id, full_name, phone_number, lead_stage, next_follow_up, assigned_at, source")
     .eq("assigned_to", user.id)
     .neq("lead_status", "closed")
     .not("next_follow_up", "is", null)
@@ -97,13 +97,17 @@ export default async function FollowUpsPage() {
 
         <div className="flex justify-between items-center text-xs text-slate-500 mt-2 pl-1 pt-1.5 border-t border-slate-50">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-slate-600">
-              {lead.lead_stage?.replace(/_/g, " ")}
+            <span className="font-semibold text-slate-700 px-2 py-0.5 bg-slate-100 rounded text-[10px] uppercase tracking-wider">
+              {lead.lead_stage?.replace(/_/g, " ") || "NEW"}
             </span>
-            <span className="text-slate-300">•</span>
-            <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-semibold">
-              {lead.crm_disposition || "Not Contacted"}
-            </span>
+            {lead.source && (
+              <>
+                <span className="text-slate-300">•</span>
+                <span className="text-[11px] text-slate-400 capitalize">
+                  {lead.source.replace(/_/g, " ")}
+                </span>
+              </>
+            )}
           </div>
           <span className="text-blue-600 font-semibold flex items-center gap-1">
             <PhoneIcon className="w-3.5 h-3.5" />
@@ -204,4 +208,3 @@ export default async function FollowUpsPage() {
     </div>
   );
 }
-

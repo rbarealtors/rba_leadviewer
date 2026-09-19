@@ -26,7 +26,9 @@ export default async function AttributionReportPage() {
   const totalContacted = reportData?.reduce((acc, row) => acc + row.contacted, 0) || 0;
   const totalInterested = reportData?.reduce((acc, row) => acc + row.interested, 0) || 0;
   const totalSiteVisit = reportData?.reduce((acc, row) => acc + row.siteVisit, 0) || 0;
+  const totalBooking = reportData?.reduce((acc, row) => acc + row.booking, 0) || 0;
   const totalClosedWon = reportData?.reduce((acc, row) => acc + row.closedWon, 0) || 0;
+  const totalLost = reportData?.reduce((acc, row) => acc + row.lost, 0) || 0;
 
   return (
     <div className="h-screen bg-canvas flex flex-col overflow-hidden">
@@ -63,7 +65,9 @@ export default async function AttributionReportPage() {
                     <th className="px-6 py-3.5 whitespace-nowrap text-right bg-panel">Contacted</th>
                     <th className="px-6 py-3.5 whitespace-nowrap text-right bg-panel">Interested</th>
                     <th className="px-6 py-3.5 whitespace-nowrap text-right bg-panel">Site Visit</th>
+                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-panel">Booking</th>
                     <th className="px-6 py-3.5 whitespace-nowrap text-right bg-panel">Closed Won</th>
+                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-panel">Lost</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line text-sm text-ink font-medium">
@@ -77,14 +81,18 @@ export default async function AttributionReportPage() {
                       <td className="px-6 py-3.5 whitespace-nowrap text-right">{row.contacted}</td>
                       <td className="px-6 py-3.5 whitespace-nowrap text-right">{row.interested}</td>
                       <td className="px-6 py-3.5 whitespace-nowrap text-right">{row.siteVisit}</td>
+                      <td className="px-6 py-3.5 whitespace-nowrap text-right">{row.booking}</td>
                       <td className="px-6 py-3.5 whitespace-nowrap text-right font-bold text-green-700">
                         {row.closedWon}
+                      </td>
+                      <td className="px-6 py-3.5 whitespace-nowrap text-right text-slate-500">
+                        {row.lost}
                       </td>
                     </tr>
                   ))}
                   {reportData?.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-subtle font-normal">
+                      <td colSpan={9} className="px-6 py-8 text-center text-subtle font-normal">
                         No attribution data available.
                       </td>
                     </tr>
@@ -98,7 +106,9 @@ export default async function AttributionReportPage() {
                       <td className="px-6 py-3.5 text-right bg-slate-50">{totalContacted}</td>
                       <td className="px-6 py-3.5 text-right bg-slate-50">{totalInterested}</td>
                       <td className="px-6 py-3.5 text-right bg-slate-50">{totalSiteVisit}</td>
+                      <td className="px-6 py-3.5 text-right bg-slate-50">{totalBooking}</td>
                       <td className="px-6 py-3.5 text-right text-green-700 bg-slate-50">{totalClosedWon}</td>
+                      <td className="px-6 py-3.5 text-right text-slate-500 bg-slate-50">{totalLost}</td>
                     </tr>
                   </tfoot>
                 )}

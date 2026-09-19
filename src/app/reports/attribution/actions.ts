@@ -15,7 +15,9 @@ export interface AttributionRow {
   contacted: number;
   interested: number;
   siteVisit: number;
+  booking: number;
   closedWon: number;
+  lost: number;
 }
 
 export async function getAttributionReportAction(): Promise<{ data: AttributionRow[] | null; error: string | null }> {
@@ -34,6 +36,7 @@ export async function getAttributionReportAction(): Promise<{ data: AttributionR
     const admin = createSupabaseAdminClient();
 
     // Fetch leads and their disposition history
+    // Fetch leads and their activities
     const { data: leads, error } = await admin
       .from("leads")
       .select(`
@@ -44,7 +47,9 @@ export async function getAttributionReportAction(): Promise<{ data: AttributionR
         ad_name,
         raw_payload,
         crm_disposition,
-        lead_disposition_history ( new_disposition )
+        lead_disposition_history ( new_disposition ),
+        lead_stage,
+        lead_activities ( type, details )
       `);
 
     if (error) {
@@ -89,7 +94,9 @@ export async function getAttributionReportAction(): Promise<{ data: AttributionR
           contacted: 0,
           interested: 0,
           siteVisit: 0,
+          booking: 0,
           closedWon: 0,
+          lost: 0,
         });
       }
 
@@ -98,18 +105,34 @@ export async function getAttributionReportAction(): Promise<{ data: AttributionR
       // 2. Compute funnel flags based on history and current state
       const history = (lead.lead_disposition_history || []).map((h: any) => h.new_disposition);
       const allDispositions = new Set([lead.crm_disposition, ...history]);
+      // 2. Compute canonical funnel flags based on lead_stage and lead_activities
+      const stagesReached = new Set<string>();
 
       // Helper to check if lead reached a state OR a state further down the funnel
       // Funnel definition explicitly from prompt:
       
       // Leads: total count
       row.leads += 1;
+      if (lead.lead_stage) {
+        stagesReached.add(lead.lead_stage);
+      }
 
       // Contacted: Reached a contacted state (anything other than Not Contacted means they were contacted)
       const isContacted = allDispositions.size > 0 && 
         [...allDispositions].some(d => d !== "Not Contacted");
       
       if (isContacted) row.contacted += 1;
+      // Infer lower funnel stages from higher current stages
+      if (lead.lead_stage === "CLOSED") {
+        stagesReached.add("BOOKING");
+        stagesReached.add("SITE_VISIT");
+        stagesReached.add("CONTACTED");
+      } else if (lead.lead_stage === "BOOKING") {
+        stagesReached.add("SITE_VISIT");
+        stagesReached.add("CONTACTED");
+      } else if (lead.lead_stage === "SITE_VISIT") {
+        stagesReached.add("CONTACTED");
+      }
 
       // Interested: crm_disposition indicates 'Contacted — Interested' 
       // OR they moved further down the funnel (Site Visit Scheduled/Done, Closed Won/Lost)
@@ -118,13 +141,42 @@ export async function getAttributionReportAction(): Promise<{ data: AttributionR
                            allDispositions.has("Site Visit Scheduled") ||
                            allDispositions.has("Site Visit Done") ||
                            allDispositions.has("Closed — Won");
+      // Check activity trail for historical stage progression (especially for leads currently in LOST)
+      const activities = Array.isArray(lead.lead_activities) ? lead.lead_activities : [];
+      for (const act of activities) {
+        const type = (act as { type?: string; details?: any }).type;
+        const details = (act as { type?: string; details?: any }).details;
 
       if (isInterested) row.interested += 1;
+        if (type === "call_outcome") {
+          if (details?.new_stage) {
+            stagesReached.add(details.new_stage);
+          } else {
+            stagesReached.add("CONTACTED");
+          }
+        } else if (type === "site_visit_scheduled" || type === "site_visit_completed") {
+          stagesReached.add("CONTACTED");
+          stagesReached.add("SITE_VISIT");
+        } else if (type === "booking_started") {
+          stagesReached.add("CONTACTED");
+          stagesReached.add("SITE_VISIT");
+          stagesReached.add("BOOKING");
+        } else if (type === "token_received" || type === "lead_closed") {
+          stagesReached.add("CONTACTED");
+          stagesReached.add("SITE_VISIT");
+          stagesReached.add("BOOKING");
+          stagesReached.add("CLOSED");
+        } else if (type === "stage_change" && details?.new_stage) {
+          stagesReached.add(details.new_stage);
+        }
+      }
 
       // Site Visit: reached the site-visit portion of the workflow
       const isSiteVisit = allDispositions.has("Site Visit Scheduled") ||
                           allDispositions.has("Site Visit Done") ||
                           allDispositions.has("Closed — Won"); // usually closed won means site visit was done
+      // Leads: total count
+      row.leads += 1;
 
       if (isSiteVisit) row.siteVisit += 1;
 
@@ -132,6 +184,12 @@ export async function getAttributionReportAction(): Promise<{ data: AttributionR
       const isClosedWon = allDispositions.has("Closed — Won");
 
       if (isClosedWon) row.closedWon += 1;
+      // Funnel stages progression
+      if (stagesReached.has("CONTACTED")) row.contacted += 1;
+      if (stagesReached.has("SITE_VISIT")) row.siteVisit += 1;
+      if (stagesReached.has("BOOKING")) row.booking += 1;
+      if (stagesReached.has("CLOSED")) row.closedWon += 1;
+      if (stagesReached.has("LOST") || lead.lead_stage === "LOST") row.lost += 1;
     }
 
     const data = Array.from(aggregated.values());

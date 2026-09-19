@@ -379,6 +379,7 @@ describe("Phase 1A — existing workflow tests still pass with crm_disposition a
 });
 
 // ── 10. Phase 1A UI Action: updateLeadDispositionAction ────────────────────────
+// ── 10. Phase 1A UI Action: updateLeadFollowUpAction ──────────────────────────
 
 describe("Phase 1A — updateLeadDispositionAction", () => {
   beforeEach(resetMocks);
