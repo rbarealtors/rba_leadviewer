@@ -480,8 +480,8 @@
             },
             {
               "label": "time.ts (IST timezone conversions & formatting)",
-              "meta": "91 LOC",
-              "bar": 91
+              "meta": "144 LOC",
+              "bar": 144
             },
             {
               "label": "verify-signature.ts (Meta HMAC SHA256 verification)",

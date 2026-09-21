@@ -23,6 +23,35 @@ export function formatIST(isoUtc: string): string {
   return `${day} ${month}, ${hour}:${minute} ${dayPeriod}`;
 }
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
+
+/** Formats a UTC ISO string into IST date and time components, e.g. { dateStr: "21 Sep,", timeStr: "11:00 am" } */
+export function formatLeadDateTime(iso: string): { dateStr: string; timeStr: string } {
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return { dateStr: iso, timeStr: "" };
+
+    // Convert UTC to IST (+05:30) deterministically
+    const utcTime = d.getTime() + d.getTimezoneOffset() * 60000;
+    const istTime = new Date(utcTime + 5.5 * 3600000);
+
+    const day = String(istTime.getDate()).padStart(2, "0");
+    const month = MONTH_NAMES[istTime.getMonth()];
+    const dateStr = `${day} ${month},`;
+
+    let hours = istTime.getHours();
+    const minutes = String(istTime.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "pm" : "am";
+    hours = hours % 12 || 12;
+    const timeStr = `${hours}:${minutes} ${ampm}`;
+
+    return { dateStr, timeStr };
+  } catch {
+    return { dateStr: iso, timeStr: "" };
+  }
+}
+
+
 /** Start-of-day boundary in IST, returned as a UTC ISO string, for a given number of days ago. */
 export function istDaysAgoStartUtc(daysAgo: number, from: Date = new Date()): string {
   // Get the current date "as seen in IST" so day boundaries line up with
@@ -87,4 +116,28 @@ export function getIstBusinessDayWindow(from: Date = new Date()): IstBusinessWin
     endIso: new Date(endMs).toISOString(),
   };
 }
+
+/**
+ * Calculates the previous 7 PM to 7 PM IST Business Day window for a given reference time (default now).
+ * This corresponds to the CRM operational day immediately preceding the current business day window.
+ *
+ * Specifically:
+ * - Window start = Current Business Day Start - 24 hours
+ * - Window end   = Current Business Day Start (exclusive) or 1ms before (inclusive endMs)
+ */
+export function getPreviousIstBusinessDayWindow(from: Date = new Date()): IstBusinessWindow & { exclusiveEndIso: string } {
+  const currentWindow = getIstBusinessDayWindow(from);
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const startMs = currentWindow.startMs - oneDayMs;
+  const endMs = currentWindow.startMs - 1;
+
+  return {
+    startMs,
+    endMs,
+    startIso: new Date(startMs).toISOString(),
+    endIso: new Date(endMs).toISOString(),
+    exclusiveEndIso: currentWindow.startIso,
+  };
+}
+
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { signOut } from "@/app/login/actions";
@@ -9,8 +9,7 @@ export function AppHeader({ email, isAdmin }: { email?: string; isAdmin: boolean
   const isUsers = pathname.startsWith("/users");
   const isSettings = pathname.startsWith("/settings");
   const isReports = pathname.startsWith("/reports");
-  const isImport = pathname.startsWith("/leads/import");
-  const isLeads = (pathname.startsWith("/leads") && !isImport) || (!isUsers && !isSettings && !isReports && !isImport && pathname === "/");
+  const isLeads = pathname.startsWith("/leads") || (!isUsers && !isSettings && !isReports && pathname === "/");
 
   return (
     <header className="border-b border-line bg-panel">
@@ -54,16 +53,6 @@ export function AppHeader({ email, isAdmin }: { email?: string; isAdmin: boolean
                 Leads
               </Link>
               <Link
-                href="/leads/import"
-                className={`h-full flex items-center border-b-2 transition-colors ${
-                  isImport
-                    ? "text-accent border-accent"
-                    : "text-subtle hover:text-ink border-transparent"
-                }`}
-              >
-                Import
-              </Link>
-              <Link
                 href="/reports/attribution"
                 className={`h-full flex items-center border-b-2 transition-colors ${
                   isReports
@@ -73,6 +62,7 @@ export function AppHeader({ email, isAdmin }: { email?: string; isAdmin: boolean
               >
                 Reports
               </Link>
+
               <Link
                 href="/users"
                 className={`h-full flex items-center border-b-2 transition-colors ${

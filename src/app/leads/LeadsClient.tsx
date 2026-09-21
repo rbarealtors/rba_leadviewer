@@ -3,8 +3,9 @@
 import { useEffect, useRef, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import type { Lead, LeadSource } from "@/lib/leads/types";
-import { formatIST, istDaysAgoStartUtc, getIstBusinessDayWindow } from "@/lib/time";
+import { formatIST, istDaysAgoStartUtc, getIstBusinessDayWindow, formatLeadDateTime } from "@/lib/time";
 import { matchesSearch } from "@/lib/leads/search";
+
 import { formatCampaignName } from "@/lib/leads/formatters";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { setLeadViewed } from "./actions";
@@ -14,6 +15,8 @@ import { LeadDetailDrawer } from "./LeadDetailDrawer";
 import { AddLeadDrawer } from "@/components/leads/AddLeadDrawer";
 import { getSalesTeam, assignLead, type SalesRep } from "./assignment-actions";
 import { exportLeadsToCsv } from "@/lib/leads/export-csv";
+import { UnseenYesterdaySection } from "./UnseenYesterdaySection";
+
 
 type ColumnKey = "time" | "source" | "name" | "phone" | "campaign" | "assigned" | "status";
 
@@ -83,33 +86,6 @@ function uniqueSorted(values: Array<string | null | undefined>): string[] {
   return Array.from(set).sort((a, b) => a.localeCompare(b));
 }
 
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
-  
-function formatLeadDateTime(iso: string) {
-  try {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return { dateStr: iso, timeStr: "" };
-
-    // Convert UTC to IST (+05:30) deterministically
-    const utcTime = d.getTime() + d.getTimezoneOffset() * 60000;
-    const istTime = new Date(utcTime + 5.5 * 3600000);
-
-    const day = String(istTime.getDate()).padStart(2, "0");
-    const month = MONTH_NAMES[istTime.getMonth()];
-    const dateStr = `${day} ${month},`;
-
-    let hours = istTime.getHours();
-    const minutes = String(istTime.getMinutes()).padStart(2, "0");
-    const ampm = hours >= 12 ? "pm" : "am";
-    hours = hours % 12 || 12;
-    const timeStr = `${hours}:${minutes} ${ampm}`;
-
-    return { dateStr, timeStr };
-  } catch {
-    return { dateStr: iso, timeStr: "" };
-  }
-}
-
 function matchesDatePreset(iso: string, preset: DatePreset, customFrom?: string, customTo?: string): boolean {
   if (preset === "all") return true;
 
@@ -176,17 +152,20 @@ interface LeadToast {
 
 export function LeadsClient({
   initialLeads,
+  initialUnseenYesterdayLeads = [],
   kpiCounts,
   totalCount: initialTotalCount,
   userRole = "staff",
 }: {
   initialLeads: Lead[];
+  initialUnseenYesterdayLeads?: Lead[];
   kpiCounts: any;
   totalCount: number;
   userRole?: string;
 }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
+  const [unseenYesterdayLeads, setUnseenYesterdayLeads] = useState<Lead[]>(initialUnseenYesterdayLeads);
   const leadsRef = useRef<Lead[]>(initialLeads);
   const [highlightedRows, setHighlightedRows] = useState<Set<string>>(new Set());
   const [toasts, setToasts] = useState<LeadToast[]>([]);
@@ -194,10 +173,15 @@ export function LeadsClient({
   const [isBackgroundFetching, setIsBackgroundFetching] = useState<boolean>(false);
 
   useEffect(() => {
+    setUnseenYesterdayLeads(initialUnseenYesterdayLeads);
+  }, [initialUnseenYesterdayLeads]);
+
+  useEffect(() => {
     getSalesTeam().then(({ data }) => {
       if (data) setSalesTeam(data);
     });
   }, []);
+
 
   // Background fetch remaining leads to support client-side filtering without hitting worker limits
   useEffect(() => {
@@ -288,8 +272,12 @@ export function LeadsClient({
         (payload) => {
           const updatedLead = payload.new as Lead;
           setLeads((prev) => prev.map((l) => (l.id === updatedLead.id ? { ...l, viewed_at: updatedLead.viewed_at } : l)));
+          if (updatedLead.viewed_at) {
+            setUnseenYesterdayLeads((prev) => prev.filter((l) => l.id !== updatedLead.id));
+          }
         }
       )
+
       .subscribe();
 
     return () => {
@@ -490,6 +478,9 @@ export function LeadsClient({
     setSelectedLead((prev) =>
       prev && prev.id === lead.id ? { ...prev, viewed_at: nextTimestamp } : prev,
     );
+    if (nextViewed) {
+      setUnseenYesterdayLeads((prev) => prev.filter((l) => l.id !== lead.id));
+    }
 
     startTransition(async () => {
       const { error } = await setLeadViewed(lead.id, nextViewed);
@@ -497,6 +488,9 @@ export function LeadsClient({
         // Revert on failure
         setLeads((prev) => prev.map((l) => (l.id === lead.id ? lead : l)));
         setSelectedLead((prev) => (prev && prev.id === lead.id ? lead : prev));
+        if (nextViewed) {
+          setUnseenYesterdayLeads((prev) => (prev.some((l) => l.id === lead.id) ? prev : [lead, ...prev]));
+        }
       }
     });
   }
@@ -525,6 +519,7 @@ export function LeadsClient({
           : lead
       )
     );
+    setUnseenYesterdayLeads((prev) => prev.filter((l) => !selectedIds.has(l.id)));
 
     const { error } = await supabase
       .from("leads")
@@ -551,6 +546,7 @@ export function LeadsClient({
       }
 
       setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, full_name: body.lead!.full_name } : l)));
+      setUnseenYesterdayLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, full_name: body.lead!.full_name } : l)));
       setSelectedLead((prev) =>
         prev && prev.id === leadId ? { ...prev, full_name: body.lead!.full_name } : prev,
       );
@@ -565,6 +561,7 @@ export function LeadsClient({
     
     // Optimistic update
     setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, assigned_to: userId, assigned_at: userId ? now : null, lead_status: userId ? "Assigned" : null } : l)));
+    setUnseenYesterdayLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, assigned_to: userId, assigned_at: userId ? now : null, lead_status: userId ? "Assigned" : null } : l)));
     setSelectedLead((prev) => prev && prev.id === leadId ? { ...prev, assigned_to: userId, assigned_at: userId ? now : null, lead_status: userId ? "Assigned" : null } : prev);
 
     const rep = salesTeam.find((r) => r.id === userId);
@@ -587,6 +584,7 @@ export function LeadsClient({
 
     return { error: null };
   }
+
 
   const [isExporting, setIsExporting] = useState(false);
   const canExport = userRole !== "sales";
@@ -886,6 +884,14 @@ export function LeadsClient({
             </button>
           </div>
         </div>
+      )}
+
+      {unseenYesterdayLeads.length > 0 && (
+        <UnseenYesterdaySection
+          leads={unseenYesterdayLeads}
+          onSelectLead={setSelectedLead}
+          onToggleViewed={handleToggleViewed}
+        />
       )}
 
       {leads.length === 0 ? (

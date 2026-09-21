@@ -1,13 +1,9 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { Lead } from "@/lib/leads/types";
 import { LeadsClient } from "./LeadsClient";
 import { AppHeader } from "@/app/AppHeader";
 import { isAdmin } from "@/lib/auth/authorization";
-import {
-  resolveGoogleCampaignName,
-  resolveGoogleAdGroupName,
-  resolvePropertyName,
-} from "@/lib/leads/google-ads-map";
+import { enrichLeadsWithResolvedNames, LEADS_SELECT_FIELDS } from "@/lib/leads/enrich";
+import { getPreviousIstBusinessDayWindow } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -24,67 +20,44 @@ export default async function LeadsPage() {
   // check.
   const query = supabase
     .from("leads")
-    .select(
-      "id, external_lead_id, full_name, phone_number, email, campaign_name, ad_group_name, ad_name, budget_range, bhk_configuration, planning_timeline, source, source_submitted_at, viewed_at, raw_payload, assigned_to, assigned_at, lead_status, disposition, disposition_details, next_follow_up, lead_stage, token_amount, closed_at, needs_staff_review, platform"
-    )
+    .select(LEADS_SELECT_FIELDS)
     .order("source_submitted_at", { ascending: false })
     .range(0, 49);
 
   const kpisQuery = supabase.rpc("get_lead_kpis");
 
-  const [leadsResponse, kpisResponse] = await Promise.all([query, kpisQuery]);
+  const { startIso: prevStartIso, exclusiveEndIso: prevEndIso } = getPreviousIstBusinessDayWindow();
+  const unseenYesterdayQuery = supabase
+    .from("leads")
+    .select(LEADS_SELECT_FIELDS)
+    .gte("source_submitted_at", prevStartIso)
+    .lt("source_submitted_at", prevEndIso)
+    .is("viewed_at", null)
+    .order("source_submitted_at", { ascending: false });
+
+  const [leadsResponse, kpisResponse, unseenResponse] = await Promise.all([
+    query,
+    kpisQuery,
+    unseenYesterdayQuery,
+  ]);
   const { data, error } = leadsResponse;
-  
+
   const kpiData = Array.isArray(kpisResponse.data) ? kpisResponse.data[0] : kpisResponse.data;
   const kpiCounts = (kpiData as any) || {
     total: 0,
     new_count: 0,
     viewed_count: 0,
   };
-  
+
   const totalCount = kpiCounts.total ?? kpiCounts.total_count ?? 0;
 
   const rawLeads = (data ?? []) as any[];
-  const leads: Lead[] = await Promise.all(
-    rawLeads.map(async (lead) => {
-      if (lead.source === "google_ads") {
-        const payload = (lead.raw_payload as Record<string, unknown>) || {};
-        const rawCampId = payload.campaign_id != null ? String(payload.campaign_id).trim() : null;
-        const rawAdGroupId = payload.adgroup_id != null ? String(payload.adgroup_id).trim() : null;
+  const rawUnseen = (unseenResponse.data ?? []) as any[];
 
-        const campaignLookupKey = rawCampId || lead.campaign_name;
-        const adGroupLookupKey = rawAdGroupId || lead.ad_group_name;
-
-        const campaignName = (await resolveGoogleCampaignName(campaignLookupKey)) ?? lead.campaign_name;
-        const adGroupName = (await resolveGoogleAdGroupName(adGroupLookupKey)) ?? lead.ad_group_name;
-        return {
-          ...lead,
-          campaign_name: campaignName,
-          ad_group_name: adGroupName,
-        };
-      }
-
-      if (lead.source === "magicbricks" || lead.source === "99acres") {
-        const payload = (lead.raw_payload as Record<string, unknown>) || {};
-        const parsed = (payload.parsed as Record<string, unknown>) || {};
-        const propertyId = parsed.property_id != null ? String(parsed.property_id).trim() : null;
-        const adNamePropIdMatch = lead.ad_name?.match(/Property\s+([A-Za-z0-9]+)/i);
-        const effectivePropId = propertyId || (adNamePropIdMatch ? adNamePropIdMatch[1] : null);
-
-        if (effectivePropId) {
-          const mappedProject = await resolvePropertyName(effectivePropId);
-          if (mappedProject) {
-            return {
-              ...lead,
-              campaign_name: mappedProject,
-            };
-          }
-        }
-      }
-
-      return lead;
-    })
-  );
+  const [leads, unseenYesterdayLeads] = await Promise.all([
+    enrichLeadsWithResolvedNames(rawLeads),
+    enrichLeadsWithResolvedNames(rawUnseen),
+  ]);
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -96,6 +69,7 @@ export default async function LeadsPage() {
         ) : (
           <LeadsClient
             initialLeads={leads}
+            initialUnseenYesterdayLeads={unseenYesterdayLeads}
             kpiCounts={kpiCounts}
             totalCount={totalCount}
             userRole={user?.app_metadata?.role || "staff"}
