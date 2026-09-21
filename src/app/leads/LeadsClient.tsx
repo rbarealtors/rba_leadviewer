@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import type { Lead, LeadSource } from "@/lib/leads/types";
 import { formatIST, istDaysAgoStartUtc, getIstBusinessDayWindow } from "@/lib/time";
 import { matchesSearch } from "@/lib/leads/search";
@@ -686,6 +687,21 @@ export function LeadsClient({
                 )}
                 <span>{exportButtonLabel}</span>
               </button>
+            )}
+
+            {userRole === "admin" && (
+              <Link
+                href="/leads/import"
+                className="inline-flex items-center gap-1.5 border border-line bg-panel text-ink hover:bg-canvas rounded-md text-sm font-medium py-2 px-3 transition-colors shadow-2xs"
+                title="Import Meta Lead Ads CSV"
+              >
+                <svg className="w-4 h-4 text-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <span>Import</span>
+              </Link>
             )}
 
             <button

@@ -65,7 +65,7 @@ function fieldValue(fields: MetaFieldDataEntry[] | undefined, name: string): str
   return value ? value : null;
 }
 
-function mapPlatform(raw: string | undefined): LeadPlatform {
+export function mapPlatform(raw: string | undefined): LeadPlatform {
   if (!raw) return null;
   const normalized = raw.toLowerCase();
   if (normalized === "ig" || normalized === "instagram") return "instagram";
