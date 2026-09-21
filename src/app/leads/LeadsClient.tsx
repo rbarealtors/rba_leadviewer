@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { useSearchParams, usePathname } from "next/navigation";
 import type { Lead, LeadSource } from "@/lib/leads/types";
 import { formatIST, istDaysAgoStartUtc, getIstBusinessDayWindow, formatLeadDateTime } from "@/lib/time";
 import { matchesSearch } from "@/lib/leads/search";
@@ -16,6 +17,15 @@ import { AddLeadDrawer } from "@/components/leads/AddLeadDrawer";
 import { getSalesTeam, assignLead, type SalesRep } from "./assignment-actions";
 import { exportLeadsToCsv } from "@/lib/leads/export-csv";
 import { UnseenYesterdaySection } from "./UnseenYesterdaySection";
+import {
+  parseLeadsUrlParams,
+  buildLeadsUrlQuery,
+  type DatePreset,
+  type SortKey,
+  type ViewMode,
+} from "@/lib/leads/filters-url";
+import { showLeadDesktopNotification } from "@/lib/notifications/desktop";
+import { NotificationPermissionButton } from "@/components/leads/NotificationPermissionButton";
 
 
 type ColumnKey = "time" | "source" | "name" | "phone" | "campaign" | "assigned" | "status";
@@ -40,9 +50,7 @@ const MIN_COL_WIDTHS: Record<ColumnKey, number> = {
   status: 100,
 };
 
-type DatePreset = "today" | "yesterday" | "last7" | "last7days" | "last30" | "last30days" | "thisMonth" | "all" | "custom";
-type SortKey = "time" | "name" | "budget" | "bhk";
-type ViewMode = "all" | "new" | "needs_review";
+
 
 const DASH = "—";
 
@@ -264,6 +272,13 @@ export function LeadsClient({
           }, 6000);
 
           playChime();
+
+          // Native Windows/browser desktop notification when CRM tab is in background
+          showLeadDesktopNotification(newLead, {
+            onClick: () => {
+              setSelectedLead(newLead);
+            },
+          });
         }
       )
       .on(
@@ -323,26 +338,136 @@ export function LeadsClient({
       document.removeEventListener("visibilitychange", handleVis);
     };
   }, [supabase]);
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  const initialFilterParams = useMemo(() => {
+    return parseLeadsUrlParams(searchParams);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [search, setSearch] = useState("");
-  const [source, setSource] = useState<LeadSource | "all">("all");
-  const [campaign, setCampaign] = useState<string>("all");
-  const [adGroup, setAdGroup] = useState<string>("all");
-  const [budget, setBudget] = useState<string>("all");
-  const [bhk, setBhk] = useState<string>("all");
-  const [planning, setPlanning] = useState<string>("all");
-  const [datePreset, setDatePreset] = useState<DatePreset>("today");
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo, setCustomTo] = useState("");
-  const [view, setView] = useState<ViewMode>("all");
-  const [sortKey, setSortKey] = useState<SortKey>("time");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [search, setSearch] = useState(initialFilterParams.search);
+  const [source, setSource] = useState<LeadSource | "all">(initialFilterParams.source);
+  const [campaign, setCampaign] = useState<string>(initialFilterParams.campaign);
+  const [adGroup, setAdGroup] = useState<string>(initialFilterParams.adGroup);
+  const [budget, setBudget] = useState<string>(initialFilterParams.budget);
+  const [bhk, setBhk] = useState<string>(initialFilterParams.bhk);
+  const [planning, setPlanning] = useState<string>(initialFilterParams.planning);
+  const [datePreset, setDatePreset] = useState<DatePreset>(initialFilterParams.datePreset);
+  const [customFrom, setCustomFrom] = useState(initialFilterParams.customFrom);
+  const [customTo, setCustomTo] = useState(initialFilterParams.customTo);
+  const [view, setView] = useState<ViewMode>(initialFilterParams.view);
+  const [sortKey, setSortKey] = useState<SortKey>(initialFilterParams.sortKey);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(initialFilterParams.sortDir);
   const [, startTransition] = useTransition();
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
 
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const isApplyingUrlRef = useRef(false);
+  const lastSyncedQueryRef = useRef(searchParams.toString());
+
+  // Browser Back / Forward sync
+  useEffect(() => {
+    const handlePopState = () => {
+      const currentParams = new URLSearchParams(window.location.search);
+      const fromUrl = parseLeadsUrlParams(currentParams);
+      isApplyingUrlRef.current = true;
+      setSearch(fromUrl.search);
+      setSource(fromUrl.source);
+      setCampaign(fromUrl.campaign);
+      setAdGroup(fromUrl.adGroup);
+      setBudget(fromUrl.budget);
+      setBhk(fromUrl.bhk);
+      setPlanning(fromUrl.planning);
+      setDatePreset(fromUrl.datePreset);
+      setCustomFrom(fromUrl.customFrom);
+      setCustomTo(fromUrl.customTo);
+      setView(fromUrl.view);
+      setSortKey(fromUrl.sortKey);
+      setSortDir(fromUrl.sortDir);
+      lastSyncedQueryRef.current = window.location.search.replace(/^\?/, "");
+
+      setTimeout(() => {
+        isApplyingUrlRef.current = false;
+      }, 50);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Update URL query parameters on filter changes (debounced for search)
+  useEffect(() => {
+    if (isApplyingUrlRef.current) return;
+
+    const handler = setTimeout(() => {
+      const newQuery = buildLeadsUrlQuery({
+        search,
+        source,
+        campaign,
+        adGroup,
+        budget,
+        bhk,
+        planning,
+        datePreset,
+        customFrom,
+        customTo,
+        view,
+        sortKey,
+        sortDir,
+      });
+
+      const normalizedQuery = newQuery.startsWith("?") ? newQuery.slice(1) : newQuery;
+      if (normalizedQuery !== lastSyncedQueryRef.current) {
+        lastSyncedQueryRef.current = normalizedQuery;
+        const nextUrl = newQuery ? `${pathname}${newQuery}` : pathname;
+        window.history.replaceState(null, "", nextUrl);
+      }
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [
+    search,
+    source,
+    campaign,
+    adGroup,
+    budget,
+    bhk,
+    planning,
+    datePreset,
+    customFrom,
+    customTo,
+    view,
+    sortKey,
+    sortDir,
+    pathname,
+  ]);
+
+  const handleResetFilters = () => {
+    isApplyingUrlRef.current = true;
+    setSearch("");
+    setSource("all");
+    setCampaign("all");
+    setAdGroup("all");
+    setBudget("all");
+    setBhk("all");
+    setPlanning("all");
+    setDatePreset("today");
+    setCustomFrom("");
+    setCustomTo("");
+    setView("all");
+    setSortKey("time");
+    setSortDir("desc");
+    lastSyncedQueryRef.current = "";
+    window.history.replaceState(null, "", pathname);
+    setTimeout(() => {
+      isApplyingUrlRef.current = false;
+    }, 50);
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -364,10 +489,17 @@ export function LeadsClient({
   const planningOptions = useMemo(() => uniqueSorted(leads.map((l) => l.planning_timeline)), [leads]);
 
   useEffect(() => {
-    if (source === "all" || (campaign !== "all" && !availableCampaigns.includes(campaign))) {
-      setCampaign("all");
+    if (source === "all") {
+      if (campaign !== "all") setCampaign("all");
+      return;
     }
-  }, [source, campaign, availableCampaigns]);
+    // Protect against wiping campaign while background leads are still loading
+    if (!isBackgroundFetching && availableCampaigns.length > 0 && campaign !== "all") {
+      if (!availableCampaigns.includes(campaign)) {
+        setCampaign("all");
+      }
+    }
+  }, [source, campaign, availableCampaigns, isBackgroundFetching]);
 
   const filtered = useMemo(() => {
     const searchTerm = search.trim().toLowerCase();
@@ -654,8 +786,10 @@ export function LeadsClient({
         onCustomFrom={setCustomFrom}
         customTo={customTo}
         onCustomTo={setCustomTo}
+        onReset={handleResetFilters}
         rightActions={
           <div className="flex items-center gap-2">
+            <NotificationPermissionButton />
             {canExport && (
               <button
                 type="button"
@@ -1556,6 +1690,7 @@ function FiltersBar(props: {
   onCustomFrom: (v: string) => void;
   customTo: string;
   onCustomTo: (v: string) => void;
+  onReset: () => void;
   rightActions?: React.ReactNode;
 }) {
   const selectClass =
@@ -1689,14 +1824,8 @@ function FiltersBar(props: {
         <div className="flex items-center gap-4">
           <button
             type="button"
-            className="text-sm font-medium text-ink underline underline-offset-2 decoration-subtle/40 hover:decoration-ink"
-            onClick={() => {
-              props.onSearch("");
-              props.onSource("all");
-              props.onCampaign("all");
-              props.onAdGroup("all");
-              props.onDatePreset("today");
-            }}
+            className="text-sm font-medium text-ink underline underline-offset-2 decoration-subtle/40 hover:decoration-ink cursor-pointer"
+            onClick={props.onReset}
           >
             Reset
           </button>

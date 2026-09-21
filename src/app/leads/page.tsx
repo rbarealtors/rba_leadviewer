@@ -1,3 +1,4 @@
+﻿import { Suspense } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { LeadsClient } from "./LeadsClient";
 import { AppHeader } from "@/app/AppHeader";
@@ -67,13 +68,15 @@ export default async function LeadsPage() {
         {error ? (
           <p className="text-sm text-red-600">Could not load leads. Please refresh.</p>
         ) : (
-          <LeadsClient
-            initialLeads={leads}
-            initialUnseenYesterdayLeads={unseenYesterdayLeads}
-            kpiCounts={kpiCounts}
-            totalCount={totalCount}
-            userRole={user?.app_metadata?.role || "staff"}
-          />
+          <Suspense fallback={null}>
+            <LeadsClient
+              initialLeads={leads}
+              initialUnseenYesterdayLeads={unseenYesterdayLeads}
+              kpiCounts={kpiCounts}
+              totalCount={totalCount}
+              userRole={user?.app_metadata?.role || "staff"}
+            />
+          </Suspense>
         )}
       </main>
     </div>
