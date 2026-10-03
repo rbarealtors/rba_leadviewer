@@ -50,7 +50,7 @@ export default async function LeadDetailPage({
   return (
     <div className="min-h-full bg-slate-50 flex flex-col">
       {/* Top Nav */}
-      <nav className="bg-slate-900 px-4 py-3.5 flex items-center sticky top-0 z-20 shadow-sm">
+      <nav className="bg-slate-900 px-4 pt-[max(0.875rem,calc(env(safe-area-inset-top,0px)+0.875rem))] pb-3.5 flex items-center sticky top-0 z-20 shadow-sm">
         <Link
           href="/sales"
           className="text-white hover:text-slate-200 flex items-center text-sm font-semibold transition-colors"

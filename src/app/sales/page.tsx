@@ -1,10 +1,9 @@
-﻿import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import type { Lead } from "@/lib/leads/types";
 import { formatDate, isToday } from "@/lib/date-utils";
 import { PhoneIcon, ClockIcon, InboxIcon } from "@/components/sales/icons";
-import PINEntryScreenClientWrapper from "./PINEntryScreenClientWrapper";
+import { SalesHeader } from "@/components/sales/SalesHeader";
 
 function sourceBadge(source: string | null | undefined): { label: string; cls: string } {
   switch (source) {
@@ -111,14 +110,6 @@ export default async function SalesPage() {
 
   if (!user) return null;
 
-  const role = user.app_metadata?.role;
-  const cookieStore = await cookies();
-  const isPinVerified = cookieStore.has("sales_pin_verified");
-
-  if (role === "sales" && !isPinVerified) {
-    return <PINEntryScreenClientWrapper />;
-  }
-
   const { data: rawNew } = await supabase
     .from("leads")
     .select("id, full_name, source, assigned_at")
@@ -159,25 +150,12 @@ export default async function SalesPage() {
 
   return (
     <div className="flex flex-col min-h-full bg-slate-50 pb-28">
-      <header className="bg-slate-900 text-white px-5 py-4 sticky top-0 z-20 shadow-sm">
-        <div className="flex justify-between items-center">
-          <div>
-            <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-0.5">
-              RBA Sales
-            </p>
-            <h1 className="text-[16px] font-bold tracking-tight leading-none">
-              {userName}
-            </h1>
-          </div>
-          <Link
-            href="/sales/settings"
-            aria-label="Settings"
-            className="w-9 h-9 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full flex items-center justify-center text-slate-100 font-bold text-[13px] transition-colors"
-          >
-            {userInitial}
-          </Link>
-        </div>
-      </header>
+      <SalesHeader
+        title={userName}
+        subtitle="RBA Sales"
+        userInitial={userInitial}
+        userName={userName}
+      />
 
       <div className="p-4 flex flex-col gap-6">
         {totalItems === 0 ? (

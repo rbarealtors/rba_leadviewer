@@ -37,7 +37,7 @@ export default async function PipelinePage({
 
   return (
     <div className="flex flex-col min-h-full bg-slate-50 pb-28">
-      <header className="bg-slate-900 text-white px-6 py-4 sticky top-0 z-10 shadow-sm">
+      <header className="bg-slate-900 text-white px-6 pt-[max(1rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-4 sticky top-0 z-10 shadow-sm">
         <h1 className="text-xl font-semibold tracking-tight mb-3">Pipeline</h1>
 
         {/* Search */}

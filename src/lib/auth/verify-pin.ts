@@ -1,48 +1,119 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { issuePinCookie, extractSessionId } from "./pin-cookie";
 
 export async function POST(req: Request) {
   try {
-    const { pin } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const pin = body?.pin;
+
+    if (!pin || typeof pin !== "string" || !/^\d{4,6}$/.test(pin)) {
+      return new Response(
+        JSON.stringify({ verified: false, message: "PIN must be between 4 and 6 digits" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
     const supabase = await createSupabaseServerClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
 
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) {
-      return new Response(JSON.stringify({ verified: false, message: "User not found" }), {
-        status: 401,
-      });
+    if (userError || !userData?.user) {
+      return new Response(
+        JSON.stringify({ verified: false, message: "Not authenticated" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    const user = data.user;
-    // Fallback default PIN is 1234 if not explicitly set in metadata
-    const pinCode = user.user_metadata?.pin_code || "1234";
+    const user = userData.user;
+    const role = user.app_metadata?.role;
 
-    if (pinCode && pinCode === pin) {
-      const sessionCookie = {
-        name: "sales_pin_verified",
-        value: "true",
-        maxAge: 8 * 60 * 60, // 8 hours
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax" as const,
-      };
-
-      return new Response(JSON.stringify({ verified: true }), {
-        status: 200,
-        headers: {
-          "Set-Cookie": `${sessionCookie.name}=${sessionCookie.value}; Max-Age=${sessionCookie.maxAge}; Path=/; HttpOnly; Secure; SameSite=${sessionCookie.sameSite}`,
-        },
-      });
+    if (role && role !== "sales") {
+      return new Response(
+        JSON.stringify({
+          verified: false,
+          message: "PIN verification is only required for sales agents",
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    return new Response(JSON.stringify({ verified: false, message: "Incorrect PIN" }), {
-      status: 401,
+    const { data: rpcData, error: rpcError } = await supabase.rpc("verify_sales_pin", {
+      submitted_pin: pin,
     });
+
+    if (rpcError || !rpcData) {
+      return new Response(
+        JSON.stringify({
+          verified: false,
+          message: rpcError?.message || "Failed to verify PIN",
+        }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const resStatus = (rpcData as { status: string; locked_until?: string; attempts_remaining?: number; pin_epoch?: string }).status;
+
+    if (resStatus === "locked") {
+      return new Response(
+        JSON.stringify({
+          verified: false,
+          status: "locked",
+          locked_until: (rpcData as { locked_until?: string }).locked_until,
+          message: "Account is locked. Try again later.",
+        }),
+        { status: 423, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (resStatus === "invalid") {
+      return new Response(
+        JSON.stringify({
+          verified: false,
+          status: "invalid",
+          attempts_remaining: (rpcData as { attempts_remaining?: number }).attempts_remaining,
+          message: `Incorrect PIN. Attempts remaining: ${(rpcData as { attempts_remaining?: number }).attempts_remaining}`,
+        }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (resStatus === "not_found") {
+      return new Response(
+        JSON.stringify({
+          verified: false,
+          status: "not_found",
+          message: "PIN not set up",
+        }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (resStatus === "ok") {
+      const pinEpoch = (rpcData as { pin_epoch: string }).pin_epoch;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const sid = extractSessionId(user, sessionData?.session);
+      await issuePinCookie(user.id, sid, pinEpoch);
+
+      return new Response(
+        JSON.stringify({
+          verified: true,
+          status: "ok",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        verified: false,
+        message: "Unexpected response from verification service",
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   } catch (error) {
     console.error("PIN verification error:", error);
-    return new Response(JSON.stringify({ verified: false, message: "Internal error" }), {
-      status: 500,
-    });
+    return new Response(
+      JSON.stringify({ verified: false, message: "Internal error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 }
-

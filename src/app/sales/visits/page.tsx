@@ -71,7 +71,7 @@ export default async function VisitsPage() {
 
   return (
     <div className="flex flex-col min-h-full bg-slate-50 pb-28">
-      <header className="bg-slate-900 text-white px-6 py-5 sticky top-0 z-10 shadow-sm">
+      <header className="bg-slate-900 text-white px-6 pt-[max(1.25rem,calc(env(safe-area-inset-top,0px)+1.25rem))] pb-5 sticky top-0 z-10 shadow-sm">
         <h1 className="text-xl font-semibold tracking-tight">Site Visits</h1>
       </header>
 
