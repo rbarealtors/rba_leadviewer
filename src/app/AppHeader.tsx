@@ -44,12 +44,12 @@ export function AppHeader({
   }, [menuOpen]);
 
   return (
-    <header className="border-b border-line bg-panel sticky top-0 z-30">
+    <header className="border-b border-[#0f3529] bg-[#174B3A] sticky top-0 z-30 shadow-xs">
       <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between gap-4">
         <div className="flex items-center gap-8 h-full">
           <Link href="/leads" className="flex items-center gap-2">
             <svg
-              className="w-6 h-6 text-accent"
+              className="w-6 h-6 text-emerald-300"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -67,9 +67,9 @@ export function AppHeader({
               <path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16" />
             </svg>
             <div className="text-sm">
-              <span className="font-bold text-accent">RBA Realtors</span>
-              <span className="text-subtle ml-2">|</span>
-              <span className="text-ink ml-2">Lead Viewer</span>
+              <span className="font-bold text-white">RBA Realtors</span>
+              <span className="text-white/40 ml-2">|</span>
+              <span className="text-emerald-100/90 ml-2">Lead Viewer</span>
             </div>
           </Link>
 
@@ -79,8 +79,8 @@ export function AppHeader({
                 href="/leads"
                 className={`h-full flex items-center border-b-2 transition-colors ${
                   isLeads
-                    ? "text-accent border-accent"
-                    : "text-subtle hover:text-ink border-transparent"
+                    ? "text-white border-white font-semibold"
+                    : "text-emerald-100/70 hover:text-white border-transparent"
                 }`}
               >
                 Leads
@@ -89,8 +89,8 @@ export function AppHeader({
                 href="/reports/attribution"
                 className={`h-full flex items-center border-b-2 transition-colors ${
                   isReports
-                    ? "text-accent border-accent"
-                    : "text-subtle hover:text-ink border-transparent"
+                    ? "text-white border-white font-semibold"
+                    : "text-emerald-100/70 hover:text-white border-transparent"
                 }`}
               >
                 Reports
@@ -99,28 +99,18 @@ export function AppHeader({
                 href="/users"
                 className={`h-full flex items-center border-b-2 transition-colors ${
                   isUsers
-                    ? "text-accent border-accent"
-                    : "text-subtle hover:text-ink border-transparent"
+                    ? "text-white border-white font-semibold"
+                    : "text-emerald-100/70 hover:text-white border-transparent"
                 }`}
               >
                 User Management
-              </Link>
-              <Link
-                href="/settings/campaign-mappings"
-                className={`h-full flex items-center border-b-2 transition-colors ${
-                  isSettings
-                    ? "text-accent border-accent"
-                    : "text-subtle hover:text-ink border-transparent"
-                }`}
-              >
-                Campaign Mappings
               </Link>
             </nav>
           )}
         </div>
 
         <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-subtle hidden sm:inline">{email}</span>
+          <span className="text-xs font-medium text-emerald-100/80 hidden sm:inline">{email}</span>
 
           {/* Menu Dropdown: Secondary Resources (Menu → Resources → Brochures) */}
           <div className="relative" ref={menuRef}>
@@ -129,9 +119,9 @@ export function AppHeader({
               onClick={() => setMenuOpen(!menuOpen)}
               aria-label="Menu"
               aria-expanded={menuOpen}
-              className="p-1.5 text-subtle hover:text-ink rounded border border-line hover:bg-canvas transition-colors flex items-center gap-1.5 text-xs font-medium"
+              className="p-1.5 text-white hover:text-white rounded border border-white/25 bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-1.5 text-xs font-medium shadow-2xs"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4 text-emerald-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
               <span>Menu</span>
@@ -209,7 +199,7 @@ export function AppHeader({
           <form action={signOut}>
             <button
               type="submit"
-              className="text-xs font-medium text-ink border border-line rounded px-3 py-1.5 hover:bg-canvas transition-colors shadow-2xs"
+              className="text-xs font-semibold text-white bg-rose-500/80 hover:bg-rose-500 border border-rose-400/40 rounded px-3 py-1.5 transition-colors shadow-2xs cursor-pointer"
             >
               Sign out
             </button>

@@ -272,6 +272,27 @@ export function LeadDetailDrawer({
           </div>
         </div>
 
+        {/* Workflow & Follow-up Banner if present */}
+        {(lead.disposition || lead.next_follow_up || lead.lead_stage) && (
+          <div className="px-6 py-2.5 bg-accent-soft/50 border-b border-accent/20 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-accent">Disposition:</span>
+              <span className="px-2 py-0.5 rounded-full bg-panel border border-accent/30 font-medium text-accent">
+                {lead.disposition || lead.lead_stage || "In Progress"}
+              </span>
+            </div>
+            {lead.next_follow_up && (
+              <div className="flex items-center gap-1.5 text-accent" suppressHydrationWarning>
+                <svg className="w-3.5 h-3.5 text-accent shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <span>Follow-up: <strong>{formatIST(lead.next_follow_up)}</strong></span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Quick Action Toolbar */}
         <div className="px-6 py-3 bg-panel border-b border-line flex flex-wrap items-center gap-2">
           {waUrl && (
@@ -373,7 +394,6 @@ export function LeadDetailDrawer({
               </div>
 
               <div className="flex items-start justify-between gap-4">
-                <span className="text-xs text-subtle">Campaign Name</span>
                 <span className="text-xs text-subtle">Campaign</span>
                 <div className="text-right">
                   <span className="font-semibold text-ink block">{campaign.title}</span>
@@ -420,9 +440,6 @@ export function LeadDetailDrawer({
 
               <div className="flex items-start justify-between gap-4">
                 <span className="text-xs text-subtle">Lead ID</span>
-                <span className="text-xs font-mono text-subtle text-right break-all">
-                  {lead.external_lead_id}
-                </span>
                 <div className="flex items-center gap-1.5 text-right">
                   <span className="text-xs font-mono text-subtle break-all">
                     {lead.external_lead_id || lead.id}

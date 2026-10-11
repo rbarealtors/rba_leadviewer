@@ -28,15 +28,14 @@ import { showLeadDesktopNotification } from "@/lib/notifications/desktop";
 import { NotificationPermissionButton } from "@/components/leads/NotificationPermissionButton";
 
 
-type ColumnKey = "time" | "source" | "name" | "phone" | "campaign" | "assigned" | "status";
+type ColumnKey = "time" | "source" | "name" | "phone" | "campaign" | "status";
 
 const DEFAULT_COL_WIDTHS: Record<ColumnKey, number> = {
   time: 160,
   source: 125,
   name: 185,
   phone: 190,
-  campaign: 250,
-  assigned: 150,
+  campaign: 260,
   status: 125,
 };
 
@@ -46,7 +45,6 @@ const MIN_COL_WIDTHS: Record<ColumnKey, number> = {
   name: 120,
   phone: 160,
   campaign: 160,
-  assigned: 120,
   status: 100,
 };
 
@@ -363,12 +361,26 @@ export function LeadsClient({
   const [sortDir, setSortDir] = useState<"asc" | "desc">(initialFilterParams.sortDir);
   const [, startTransition] = useTransition();
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
+  const [isMoreFiltersOpen, setIsMoreFiltersOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const [pageSize, setPageSize] = useState<number>(10);
+  const [pageSize, setPageSize] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
   const isApplyingUrlRef = useRef(false);
   const lastSyncedQueryRef = useRef(searchParams.toString());
+
+  // Keyboard shortcut ⌘K / Ctrl+K to focus search
+  useEffect(() => {
+    function handleGlobalKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
 
   // Browser Back / Forward sync
   useEffect(() => {
@@ -502,44 +514,24 @@ export function LeadsClient({
   }, [source, campaign, availableCampaigns, isBackgroundFetching]);
 
   const filtered = useMemo(() => {
-    const searchTerm = search.trim().toLowerCase();
+    const searchTerm = search.trim();
 
-    let result: Lead[];
+    let result = leads.filter((lead) => {
+      if (searchTerm.length > 0 && !matchesSearch(lead, searchTerm)) return false;
+      if (view === "new" && lead.viewed_at) return false;
+      if (view === "needs_review" && !lead.needs_staff_review) return false;
+      if (view === "unassigned" && lead.assigned_to) return false;
+      if (view === "needs_followup" && !lead.next_follow_up) return false;
+      if (source !== "all" && lead.source !== source) return false;
+      if (campaign !== "all" && lead.campaign_name !== campaign) return false;
+      if (adGroup !== "all" && lead.ad_group_name !== adGroup) return false;
+      if (budget !== "all" && lead.budget_range !== budget) return false;
+      if (bhk !== "all" && lead.bhk_configuration !== bhk) return false;
+      if (planning !== "all" && lead.planning_timeline !== planning) return false;
+      if (!matchesDatePreset(lead.source_submitted_at, datePreset, customFrom, customTo)) return false;
 
-    if (searchTerm.length > 0) {
-      result = leads.filter((lead) => {
-        const target = [
-          lead.full_name,
-          lead.phone_number,
-          lead.email,
-          lead.campaign_name,
-          lead.ad_group_name,
-          lead.ad_name,
-          lead.budget_range,
-          lead.bhk_configuration,
-          lead.planning_timeline,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-
-        return target.includes(searchTerm);
-      });
-    } else {
-      result = leads.filter((lead) => {
-        if (view === "new" && lead.viewed_at) return false;
-        if (view === "needs_review" && !lead.needs_staff_review) return false;
-        if (source !== "all" && lead.source !== source) return false;
-        if (campaign !== "all" && lead.campaign_name !== campaign) return false;
-        if (adGroup !== "all" && lead.ad_group_name !== adGroup) return false;
-        if (budget !== "all" && lead.budget_range !== budget) return false;
-        if (bhk !== "all" && lead.bhk_configuration !== bhk) return false;
-        if (planning !== "all" && lead.planning_timeline !== planning) return false;
-        if (!matchesDatePreset(lead.source_submitted_at, datePreset, customFrom, customTo)) return false;
-
-        return true;
-      });
-    }
+      return true;
+    });
 
     result = result.slice().sort((a, b) => {
       let cmp = 0;
@@ -572,23 +564,59 @@ export function LeadsClient({
     return filtered.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
   }, [filtered, safeCurrentPage, pageSize]);
 
-  const isAllTimeUnfiltered = datePreset === "all" && search === "" && source === "all" && campaign === "all" && adGroup === "all" && budget === "all" && bhk === "all" && planning === "all";
+  // Real-time queue counts matching active time window and source
+  const queueCounts = useMemo(() => {
+    const baseInWindow = leads.filter(
+      (l) =>
+        (source === "all" || l.source === source) &&
+        matchesDatePreset(l.source_submitted_at, datePreset, customFrom, customTo)
+    );
 
-  const totalCount = isAllTimeUnfiltered && (kpiCounts?.total ?? kpiCounts?.total_count) ? (kpiCounts.total ?? kpiCounts.total_count) : filtered.length;
-  const newCount = isAllTimeUnfiltered && kpiCounts?.new_count != null ? kpiCounts.new_count : filtered.filter((l) => !l.viewed_at).length;
-  const viewedCount = isAllTimeUnfiltered && kpiCounts?.viewed_count != null ? kpiCounts.viewed_count : totalCount - newCount;
+    return {
+      all: baseInWindow.length,
+      new: baseInWindow.filter((l) => !l.viewed_at).length,
+      needs_followup: baseInWindow.filter((l) => Boolean(l.next_follow_up)).length,
+      unassigned: baseInWindow.filter((l) => !l.assigned_to).length,
+      needs_review: baseInWindow.filter((l) => Boolean(l.needs_staff_review)).length,
+    };
+  }, [leads, source, datePreset, customFrom, customTo]);
 
-  // Dynamic KPI metrics matching the active date window
-  const dateLabel = getDatePresetLabel(datePreset, customFrom, customTo);
-  const kpiTotal = isAllTimeUnfiltered && (kpiCounts?.total ?? kpiCounts?.total_count) ? (kpiCounts.total ?? kpiCounts.total_count) : filtered.length;
-  const kpiNew = isAllTimeUnfiltered && kpiCounts?.new_count != null ? kpiCounts.new_count : filtered.filter((l) => !l.viewed_at).length;
-  const kpiViewed = isAllTimeUnfiltered && kpiCounts?.viewed_count != null ? kpiCounts.viewed_count : kpiTotal - kpiNew;
+  // Real-time source counts matching active time window and queue view
+  const sourceCounts = useMemo(() => {
+    const baseInWindow = leads.filter((l) => {
+      if (view === "new" && l.viewed_at) return false;
+      if (view === "needs_review" && !l.needs_staff_review) return false;
+      if (view === "unassigned" && l.assigned_to) return false;
+      if (view === "needs_followup" && !l.next_follow_up) return false;
+      return matchesDatePreset(l.source_submitted_at, datePreset, customFrom, customTo);
+    });
 
-  const googleCount = filtered.filter((l) => l.source === "google_ads").length;
-  const metaCount = filtered.filter((l) => l.source === "meta_ads").length;
-  const acresCount = filtered.filter((l) => l.source === "99acres").length;
-  const mbCount = filtered.filter((l) => l.source === "magicbricks").length;
-  const needsReviewCount = leads.filter((l) => l.needs_staff_review && (source === "all" || l.source === source) && matchesDatePreset(l.source_submitted_at, datePreset, customFrom, customTo)).length;
+    return {
+      all: baseInWindow.length,
+      google_ads: baseInWindow.filter((l) => l.source === "google_ads").length,
+      meta_ads: baseInWindow.filter((l) => l.source === "meta_ads").length,
+      "99acres": baseInWindow.filter((l) => l.source === "99acres").length,
+      magicbricks: baseInWindow.filter((l) => l.source === "magicbricks").length,
+    };
+  }, [leads, view, datePreset, customFrom, customTo]);
+
+  const isFiltered =
+    search.trim() !== "" ||
+    source !== "all" ||
+    campaign !== "all" ||
+    adGroup !== "all" ||
+    budget !== "all" ||
+    bhk !== "all" ||
+    planning !== "all" ||
+    datePreset !== "today" ||
+    view !== "all";
+
+  const moreFiltersActiveCount = [
+    adGroup !== "all",
+    budget !== "all",
+    bhk !== "all",
+    planning !== "all",
+  ].filter(Boolean).length;
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -765,234 +793,474 @@ export function LeadsClient({
   };
 
   return (
-    <div className="space-y-4">
-      <FiltersBar
-        search={search}
-        onSearch={setSearch}
-        source={source}
-        onSource={(nextSource) => {
-          setSource(nextSource);
-          if (nextSource === "all") setCampaign("all");
-        }}
-        campaign={campaign}
-        onCampaign={setCampaign}
-        campaignOptions={availableCampaigns}
-        adGroup={adGroup}
-        onAdGroup={setAdGroup}
-        adGroupOptions={adGroupOptions}
-        datePreset={datePreset}
-        onDatePreset={setDatePreset}
-        customFrom={customFrom}
-        onCustomFrom={setCustomFrom}
-        customTo={customTo}
-        onCustomTo={setCustomTo}
-        onReset={handleResetFilters}
-        rightActions={
-          <div className="flex items-center gap-2">
-            <NotificationPermissionButton />
-            {canExport && (
-              <button
-                type="button"
-                onClick={handleExport}
-                disabled={isExportDisabled}
-                className={`inline-flex items-center gap-1.5 border rounded-md text-sm font-medium py-2 px-3 transition-colors shadow-2xs ${
-                  isExportDisabled
-                    ? "bg-canvas text-subtle border-line cursor-not-allowed opacity-70"
-                    : isSelectedExport
-                    ? "bg-accent-soft text-accent border-accent/40 hover:bg-accent hover:text-white"
-                    : "bg-panel text-ink hover:bg-canvas border-line"
-                }`}
-                title={exportTooltip}
-                aria-label={exportTooltip}
-              >
-                {isExporting || (isBackgroundFetching && !isSelectedExport && !isFetchComplete) ? (
-                  <svg className="w-4 h-4 animate-spin text-subtle" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4 text-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                )}
-                <span>{exportButtonLabel}</span>
-              </button>
-            )}
-
-            {userRole === "admin" && (
-              <Link
-                href="/leads/import"
-                className="inline-flex items-center gap-1.5 border border-line bg-panel text-ink hover:bg-canvas rounded-md text-sm font-medium py-2 px-3 transition-colors shadow-2xs"
-                title="Import Meta Lead Ads CSV"
-              >
-                <svg className="w-4 h-4 text-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                <span>Import</span>
-              </Link>
-            )}
-
-            <button
-              onClick={() => setIsAddLeadOpen(true)}
-              className="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium py-2 px-4 rounded-md transition-colors shadow-2xs"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Add Lead
-            </button>
-          </div>
-        }
-      />
-
-      {/* Segments & Top Right Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => { setView("all"); setSource("all"); }}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border shadow-2xs ${
-              view === "all" && source === "all"
-                ? "bg-accent text-white border-accent"
-                : "bg-panel text-ink hover:bg-canvas border-line"
-            }`}
-          >
-            All Leads
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${view === "all" && source === "all" ? "bg-white/20" : "bg-canvas border border-line"}`}>{totalCount}</span>
-          </button>
-          
-          <button
-            onClick={() => setView(view === "new" ? "all" : "new")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border shadow-2xs ${
-              view === "new"
-                ? "bg-accent-soft text-accent border-accent/40"
-                : "bg-panel text-ink hover:bg-canvas border-line"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-            New
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${view === "new" ? "bg-white/60" : "bg-canvas border border-line"}`}>{newCount}</span>
-          </button>
-
-          <button
-            onClick={() => setView(view === "needs_review" ? "all" : "needs_review")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border shadow-2xs ${
-              view === "needs_review"
-                ? "bg-rose-50 text-rose-700 border-rose-200"
-                : "bg-panel text-ink hover:bg-canvas border-line"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
-            Needs review
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${view === "needs_review" ? "bg-white/60" : "bg-canvas border border-line"}`}>{needsReviewCount}</span>
-          </button>
-
-          <div className="w-px h-5 bg-line mx-1" />
-
-          <button
-            onClick={() => setSource("all")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border shadow-2xs ${
-              source === "all"
-                ? "bg-accent-soft text-accent border-accent/40"
-                : "bg-panel text-ink hover:bg-canvas border-line"
-            }`}
-          >
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-            All Sources
-          </button>
-          
-          <button
-            onClick={() => setSource(source === "google_ads" ? "all" : "google_ads")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border shadow-2xs ${
-              source === "google_ads"
-                ? "bg-blue-50 text-blue-700 border-blue-200"
-                : "bg-panel text-ink hover:bg-canvas border-line"
-            }`}
-          >
-            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.825-.07-1.635-.205-2.415H12v4.545h6.63c-.285 1.485-1.11 2.745-2.355 3.585v2.955h3.795c2.22-2.055 3.51-5.07 3.51-8.67Z"/><path fill="#34A853" d="M12 24c3.24 0 5.955-1.08 7.935-2.91l-3.795-2.955c-1.08.735-2.46 1.155-4.14 1.155-3.18 0-5.88-2.145-6.84-5.025H1.245v3.06C3.21 21.36 7.29 24 12 24Z"/><path fill="#FBBC05" d="M5.16 15.265c-.24-.735-.375-1.53-.375-2.355 0-.825.135-1.62.375-2.355v-3.06H1.245A11.967 11.967 0 0 0 0 12.91c0 1.935.465 3.765 1.245 5.415l3.915-3.06Z"/><path fill="#EA4335" d="M12 4.71c1.755 0 3.345.6 4.59 1.785l3.435-3.435C17.94 1.155 15.225 0 12 0 7.29 0 3.21 2.64 1.245 6.495l3.915 3.06c.96-2.88 3.66-5.025 6.84-5.025Z"/></svg>
-            Google Ads
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${source === "google_ads" ? "bg-white/60" : "bg-canvas border border-line"}`}>{googleCount}</span>
-          </button>
-          
-          <button
-            onClick={() => setSource(source === "meta_ads" ? "all" : "meta_ads")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border shadow-2xs ${
-              source === "meta_ads"
-                ? "bg-blue-50 text-blue-700 border-blue-200"
-                : "bg-panel text-ink hover:bg-canvas border-line"
-            }`}
-          >
-            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-            Meta / Facebook
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${source === "meta_ads" ? "bg-white/60" : "bg-canvas border border-line"}`}>{metaCount}</span>
-          </button>
-
-          <button
-            onClick={() => setSource(source === "99acres" ? "all" : "99acres")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border shadow-2xs ${
-              source === "99acres"
-                ? "bg-teal-50 text-teal-800 border-teal-200"
-                : "bg-panel text-ink hover:bg-canvas border-line"
-            }`}
-          >
-            <span className="text-teal-600 font-extrabold text-[10px]">99</span>
-            99acres
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${source === "99acres" ? "bg-white/60" : "bg-canvas border border-line"}`}>{acresCount}</span>
-          </button>
-
-          <button
-            onClick={() => setSource(source === "magicbricks" ? "all" : "magicbricks")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border shadow-2xs ${
-              source === "magicbricks"
-                ? "bg-rose-50 text-rose-700 border-rose-200"
-                : "bg-panel text-ink hover:bg-canvas border-line"
-            }`}
-          >
-            <span className="bg-red-600 text-white rounded-[2px] text-[8px] px-0.5 font-bold">mb</span>
-            MagicBricks
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${source === "magicbricks" ? "bg-white/60" : "bg-canvas border border-line"}`}>{mbCount}</span>
-          </button>
+    <div className="space-y-6">
+      {/* 1. Header and Primary / Secondary Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-line">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">Leads</h1>
+          <p className="text-xs text-subtle mt-0.5">
+            Inbound enquiries, sales team assignment, and cross-channel tracking.
+          </p>
         </div>
 
-        <p className="text-[11px] text-subtle hidden md:block">
-          💡 Click any row to view full details
-        </p>
+        <div className="flex items-center gap-2 shrink-0">
+          <NotificationPermissionButton />
+
+          {canExport && (
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={isExportDisabled}
+              className={`inline-flex items-center gap-1.5 border rounded-md text-xs font-semibold h-8 px-3 transition-colors shadow-2xs ${
+                isExportDisabled
+                  ? "bg-canvas text-subtle border-line cursor-not-allowed opacity-70"
+                  : isSelectedExport
+                  ? "bg-accent-soft text-accent border-accent/40 hover:bg-accent hover:text-white"
+                  : "bg-panel text-ink hover:bg-slate-50 border-line"
+              }`}
+              title={exportTooltip}
+              aria-label={exportTooltip}
+            >
+              {isExporting || (isBackgroundFetching && !isSelectedExport && !isFetchComplete) ? (
+                <svg className="w-3.5 h-3.5 animate-spin text-subtle" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5 text-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              )}
+              <span>{exportButtonLabel}</span>
+            </button>
+          )}
+
+          {userRole === "admin" && (
+            <Link
+              href="/leads/import"
+              className="inline-flex items-center gap-1.5 border border-line bg-panel text-ink hover:bg-slate-50 rounded-md text-xs font-semibold h-8 px-3 transition-colors shadow-2xs"
+              title="Import Meta Lead Ads CSV"
+            >
+              <svg className="w-3.5 h-3.5 text-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <span>Import</span>
+            </Link>
+          )}
+
+          <button
+            onClick={() => setIsAddLeadOpen(true)}
+            className="inline-flex items-center gap-1.5 bg-accent hover:bg-[#15342c] text-white text-xs font-semibold h-8 px-3.5 rounded-md transition-colors shadow-xs cursor-pointer"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Add lead
+          </button>
+        </div>
       </div>
 
-      {/* Stats Cards Row */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-1">
-        <div className="bg-panel border border-line rounded-lg p-4 flex items-center gap-4 shadow-2xs">
-          <div className="w-10 h-10 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
-            <svg className="w-5 h-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-          </div>
-          <div>
-            <div className="text-xl font-bold text-ink" suppressHydrationWarning>{kpiTotal}</div>
-            <div className="text-xs text-subtle font-medium mt-0.5">Total Leads {dateLabel}</div>
+      {/* 2. Action-oriented Work Queues & Sources Strip */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-1">
+        {/* Work Queues - Primary navigation group */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] font-semibold text-subtle uppercase tracking-wider mr-0.5 hidden sm:inline">
+            Queue:
+          </span>
+          <div className="inline-flex items-center gap-1 p-1 bg-white border border-line rounded-lg shadow-xs">
+            <button
+              type="button"
+              onClick={() => setView("all")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                view === "all"
+                  ? "bg-accent text-white shadow-xs"
+                  : "text-subtle hover:text-ink hover:bg-slate-50 font-medium"
+              }`}
+            >
+              <span>All leads</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[11px] font-bold ${view === "all" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700"}`}>
+                {queueCounts.all}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setView(view === "new" ? "all" : "new")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                view === "new"
+                  ? "bg-accent text-white shadow-xs"
+                  : "text-subtle hover:text-ink hover:bg-slate-50 font-medium"
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full shrink-0 ${view === "new" ? "bg-emerald-300" : "bg-emerald-600"}`} />
+              <span>New</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[11px] font-bold ${view === "new" ? "bg-white/20 text-white" : "bg-emerald-50 text-emerald-800"}`}>
+                {queueCounts.new}
+              </span>
+            </button>
+
           </div>
         </div>
 
-        <div className="bg-panel border border-line rounded-lg p-4 flex items-center gap-4 shadow-2xs">
-          <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+        {/* Source Filters - Quieter secondary filter pills in dedicated surface */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] font-semibold text-subtle uppercase tracking-wider mr-0.5 hidden sm:inline">
+            Source:
+          </span>
+          <div className="inline-flex items-center gap-1 p-1 bg-white border border-line rounded-lg shadow-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setSource("all");
+                setCampaign("all");
+              }}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                source === "all"
+                  ? "bg-slate-100 text-ink border border-slate-300 font-semibold shadow-2xs"
+                  : "text-subtle hover:text-ink hover:bg-slate-50 font-medium"
+              }`}
+            >
+              <span>All sources</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${source === "all" ? "bg-white text-ink shadow-2xs" : "bg-slate-100 text-subtle"}`}>
+                {sourceCounts.all}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const next = source === "google_ads" ? "all" : "google_ads";
+                setSource(next);
+                if (next === "all") setCampaign("all");
+              }}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                source === "google_ads"
+                  ? "bg-blue-50 text-blue-900 border border-blue-300 font-semibold shadow-2xs"
+                  : "text-subtle hover:text-ink hover:bg-slate-50 font-medium"
+              }`}
+            >
+              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.825-.07-1.635-.205-2.415H12v4.545h6.63c-.285 1.485-1.11 2.745-2.355 3.585v2.955h3.795c2.22-2.055 3.51-5.07 3.51-8.67Z"/><path fill="#34A853" d="M12 24c3.24 0 5.955-1.08 7.935-2.91l-3.795-2.955c-1.08.735-2.46 1.155-4.14 1.155-3.18 0-5.88-2.145-6.84-5.025H1.245v3.06C3.21 21.36 7.29 24 12 24Z"/><path fill="#FBBC05" d="M5.16 15.265c-.24-.735-.375-1.53-.375-2.355 0-.825.135-1.62.375-2.355v-3.06H1.245A11.967 11.967 0 0 0 0 12.91c0 1.935.465 3.765 1.245 5.415l3.915-3.06Z"/><path fill="#EA4335" d="M12 4.71c1.755 0 3.345.6 4.59 1.785l3.435-3.435C17.94 1.155 15.225 0 12 0 7.29 0 3.21 2.64 1.245 6.495l3.915 3.06c.96-2.88 3.66-5.025 6.84-5.025Z"/></svg>
+              <span>Google Ads</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${source === "google_ads" ? "bg-blue-100 text-blue-900" : "bg-slate-100 text-subtle"}`}>
+                {sourceCounts.google_ads}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const next = source === "meta_ads" ? "all" : "meta_ads";
+                setSource(next);
+                if (next === "all") setCampaign("all");
+              }}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                source === "meta_ads"
+                  ? "bg-blue-50 text-blue-900 border border-blue-300 font-semibold shadow-2xs"
+                  : "text-subtle hover:text-ink hover:bg-slate-50 font-medium"
+              }`}
+            >
+              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              <span>Meta Ads</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${source === "meta_ads" ? "bg-blue-100 text-blue-900" : "bg-slate-100 text-subtle"}`}>
+                {sourceCounts.meta_ads}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const next = source === "99acres" ? "all" : "99acres";
+                setSource(next);
+                if (next === "all") setCampaign("all");
+              }}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                source === "99acres"
+                  ? "bg-teal-50 text-teal-900 border border-teal-300 font-semibold shadow-2xs"
+                  : "text-subtle hover:text-ink hover:bg-slate-50 font-medium"
+              }`}
+            >
+              <span className="text-teal-700 font-black text-[10px]">99</span>
+              <span>99acres</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${source === "99acres" ? "bg-teal-100 text-teal-900" : "bg-slate-100 text-subtle"}`}>
+                {sourceCounts["99acres"]}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const next = source === "magicbricks" ? "all" : "magicbricks";
+                setSource(next);
+                if (next === "all") setCampaign("all");
+              }}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                source === "magicbricks"
+                  ? "bg-rose-50 text-rose-900 border border-rose-300 font-semibold shadow-2xs"
+                  : "text-subtle hover:text-ink hover:bg-slate-50 font-medium"
+              }`}
+            >
+              <span className="bg-red-600 text-white rounded-[2px] text-[8px] px-0.5 font-bold">mb</span>
+              <span>MagicBricks</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${source === "magicbricks" ? "bg-rose-100 text-rose-900" : "bg-slate-100 text-subtle"}`}>
+                {sourceCounts.magicbricks}
+              </span>
+            </button>
           </div>
-          <div>
-            <div className="text-xl font-bold text-ink" suppressHydrationWarning>{kpiNew}</div>
-            <div className="text-xs text-subtle font-medium mt-0.5">New Leads {dateLabel}</div>
+        </div>
+      </div>
+
+      {/* 3. Compact Search & Filter Toolbar */}
+      <div className="bg-white border border-line rounded-lg p-3 shadow-xs space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          {/* Search Box */}
+          <div className="relative flex-1 min-w-[220px] max-w-sm">
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, phone, email, project..."
+              className="w-full rounded-md border border-line bg-white pl-8 pr-12 h-8 text-xs text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 font-medium placeholder:text-subtle transition-all shadow-2xs"
+            />
+            <svg
+              className="w-3.5 h-3.5 text-subtle absolute left-2.5 top-2.5 pointer-events-none"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            {search ? (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1.5 p-1 rounded text-subtle hover:text-ink hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Clear search"
+                aria-label="Clear search"
+              >
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            ) : (
+              <span className="absolute right-2.5 top-2 text-[10px] font-mono text-subtle/80 pointer-events-none">
+                ⌘K
+              </span>
+            )}
+          </div>
+
+          {/* Primary Filter Selectors */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Date Preset */}
+            <select
+              value={datePreset}
+              onChange={(e) => setDatePreset(e.target.value as DatePreset)}
+              className="h-8 text-xs font-medium border border-line rounded-md px-2.5 bg-white text-ink shadow-2xs outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 cursor-pointer transition-colors hover:border-slate-400"
+            >
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="last7days">Last 7 days</option>
+              <option value="last30days">Last 30 days</option>
+              <option value="thisMonth">This month</option>
+              <option value="all">All time</option>
+              <option value="custom">Custom range...</option>
+            </select>
+
+            {/* Custom Date Pickers */}
+            {datePreset === "custom" && (
+              <div className="inline-flex items-center gap-1 text-xs">
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="border border-line rounded-md px-2 h-8 bg-white text-ink text-xs shadow-2xs outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                />
+                <span className="text-subtle">to</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="border border-line rounded-md px-2 h-8 bg-white text-ink text-xs shadow-2xs outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                />
+              </div>
+            )}
+
+            {/* Campaign selector (active when specific source is picked) */}
+            {source !== "all" && availableCampaigns.length > 0 && (
+              <select
+                value={campaign}
+                onChange={(e) => setCampaign(e.target.value)}
+                className="h-8 text-xs font-medium border border-line rounded-md px-2.5 bg-white text-ink shadow-2xs outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 max-w-[180px] truncate cursor-pointer transition-colors hover:border-slate-400"
+              >
+                <option value="all">All campaigns</option>
+                {availableCampaigns.map((c) => (
+                  <option key={c} value={c}>{truncate(c, 30).display}</option>
+                ))}
+              </select>
+            )}
+
+            {/* More Filters Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsMoreFiltersOpen(!isMoreFiltersOpen)}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium border rounded-md h-8 px-2.5 transition-colors cursor-pointer shadow-2xs ${
+                moreFiltersActiveCount > 0 || isMoreFiltersOpen
+                  ? "bg-accent-soft text-accent border-accent/40 font-semibold"
+                  : "bg-white text-ink border-line hover:bg-slate-50 hover:border-slate-400"
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+              </svg>
+              <span>More filters</span>
+              {moreFiltersActiveCount > 0 && (
+                <span className="w-4 h-4 rounded-full bg-accent text-white text-[10px] font-bold flex items-center justify-center">
+                  {moreFiltersActiveCount}
+                </span>
+              )}
+            </button>
+
+            {/* Reset Button */}
+            {isFiltered && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="text-xs font-semibold text-rose-600 hover:text-rose-700 h-8 px-2 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+              >
+                Reset filters
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="bg-panel border border-line rounded-lg p-4 flex items-center gap-4 shadow-2xs">
-          <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
-            <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        {/* Expandable More Filters Panel */}
+        {isMoreFiltersOpen && (
+          <div className="pt-2.5 border-t border-line grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 animate-in fade-in duration-150">
+            <div>
+              <label className="block text-[11px] font-medium text-subtle mb-1">Ad Group / Ad Set</label>
+              <select
+                value={adGroup}
+                onChange={(e) => setAdGroup(e.target.value)}
+                className="w-full text-xs font-medium border border-line rounded-md px-2.5 py-1.5 bg-white text-ink shadow-2xs outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors hover:border-slate-400"
+              >
+                <option value="all">All ad groups</option>
+                {adGroupOptions.map((opt) => (
+                  <option key={opt} value={opt}>{truncate(opt, 30).display}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-subtle mb-1">Budget Range</label>
+              <select
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+                className="w-full text-xs font-medium border border-line rounded-md px-2.5 py-1.5 bg-white text-ink shadow-2xs outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors hover:border-slate-400"
+              >
+                <option value="all">All budgets</option>
+                {budgetOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-subtle mb-1">BHK Configuration</label>
+              <select
+                value={bhk}
+                onChange={(e) => setBhk(e.target.value)}
+                className="w-full text-xs font-medium border border-line rounded-md px-2.5 py-1.5 bg-white text-ink shadow-2xs outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors hover:border-slate-400"
+              >
+                <option value="all">All BHKs</option>
+                {bhkOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-subtle mb-1">Planning Timeline</label>
+              <select
+                value={planning}
+                onChange={(e) => setPlanning(e.target.value)}
+                className="w-full text-xs font-medium border border-line rounded-md px-2.5 py-1.5 bg-white text-ink shadow-2xs outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors hover:border-slate-400"
+              >
+                <option value="all">All timelines</option>
+                {planningOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div>
-            <div className="text-xl font-bold text-ink" suppressHydrationWarning>{kpiViewed}</div>
-            <div className="text-xs text-subtle font-medium mt-0.5">Viewed Leads {dateLabel}</div>
+        )}
+
+        {/* Active Filters Pill Chips */}
+        {isFiltered && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-line text-[11px]">
+            <span className="text-subtle font-medium">Active filters:</span>
+            {search.trim() && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-soft text-accent border border-accent/20 font-medium">
+                Search: &quot;{search}&quot;
+                <button onClick={() => setSearch("")} className="hover:text-ink font-bold cursor-pointer">×</button>
+              </span>
+            )}
+            {view !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-soft text-accent border border-accent/20 font-medium">
+                Queue: {view.replace("_", " ")}
+                <button onClick={() => setView("all")} className="hover:text-ink font-bold cursor-pointer">×</button>
+              </span>
+            )}
+            {source !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-900 border border-blue-200 font-medium">
+                Source: {source}
+                <button onClick={() => { setSource("all"); setCampaign("all"); }} className="hover:text-ink font-bold cursor-pointer">×</button>
+              </span>
+            )}
+            {campaign !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-ink font-medium">
+                Campaign: {truncate(campaign, 20).display}
+                <button onClick={() => setCampaign("all")} className="hover:text-ink font-bold cursor-pointer">×</button>
+              </span>
+            )}
+            {adGroup !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-ink font-medium">
+                Ad Group: {truncate(adGroup, 20).display}
+                <button onClick={() => setAdGroup("all")} className="hover:text-ink font-bold cursor-pointer">×</button>
+              </span>
+            )}
+            {budget !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-ink font-medium">
+                Budget: {budget}
+                <button onClick={() => setBudget("all")} className="hover:text-ink font-bold cursor-pointer">×</button>
+              </span>
+            )}
+            {bhk !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-ink font-medium">
+                BHK: {bhk}
+                <button onClick={() => setBhk("all")} className="hover:text-ink font-bold cursor-pointer">×</button>
+              </span>
+            )}
+            {planning !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-ink font-medium">
+                Timeline: {planning}
+                <button onClick={() => setPlanning("all")} className="hover:text-ink font-bold cursor-pointer">×</button>
+              </span>
+            )}
+            {datePreset !== "today" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-ink font-medium">
+                Date: {datePreset}
+                <button onClick={() => setDatePreset("today")} className="hover:text-ink font-bold cursor-pointer">×</button>
+              </span>
+            )}
           </div>
-        </div>
+        )}
       </div>
 
       {selectedIds.size > 0 && (
@@ -1031,7 +1299,11 @@ export function LeadsClient({
       {leads.length === 0 ? (
         <EmptyState title="No leads yet." subtitle="Waiting for submissions…" />
       ) : filtered.length === 0 ? (
-        <EmptyState title="No leads match your search or filters." />
+        <EmptyState
+          title="No leads match your search or filters."
+          subtitle="Try adjusting your date range, source, or clearing your active filters."
+          onReset={handleResetFilters}
+        />
       ) : (
         <>
           <LeadsTable
@@ -1051,7 +1323,7 @@ export function LeadsClient({
           <PaginationBar
             startItem={startItem}
             endItem={endItem}
-            totalCount={totalCount}
+            totalCount={filtered.length}
             pageSize={pageSize}
             onPageSizeChange={(newSize) => {
               setPageSize(newSize);
@@ -1215,11 +1487,34 @@ export function LeadsClient({
   );
 }
 
-function EmptyState({ title, subtitle }: { title: string; subtitle?: string }) {
+function EmptyState({
+  title,
+  subtitle,
+  onReset,
+}: {
+  title: string;
+  subtitle?: string;
+  onReset?: () => void;
+}) {
   return (
-    <div className="border border-line rounded-lg bg-panel py-16 text-center shadow-xs">
-      <p className="text-sm font-medium text-ink">{title}</p>
-      {subtitle && <p className="text-xs text-subtle mt-1">{subtitle}</p>}
+    <div className="border border-line rounded-lg bg-white py-14 text-center shadow-xs px-4">
+      <div className="w-10 h-10 rounded-full bg-slate-100 border border-line mx-auto flex items-center justify-center text-subtle mb-3">
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      </div>
+      <p className="text-sm font-semibold text-ink">{title}</p>
+      {subtitle && <p className="text-xs text-subtle mt-1 max-w-sm mx-auto">{subtitle}</p>}
+      {onReset && (
+        <button
+          type="button"
+          onClick={onReset}
+          className="mt-3.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-accent-soft text-accent border border-accent/40 hover:bg-accent hover:text-white transition-colors cursor-pointer"
+        >
+          Reset all filters
+        </button>
+      )}
     </div>
   );
 }
@@ -1292,7 +1587,6 @@ function LeadsTable({
     colWidths.name +
     colWidths.phone +
     colWidths.campaign +
-    colWidths.assigned +
     colWidths.status;
 
   function toggleAll() {
@@ -1318,13 +1612,13 @@ function LeadsTable({
 
   function sortIndicator(key: SortKey) {
     if (sortKey !== key) return null;
-    return <span className="ml-0.5 text-subtle">{sortDir === "asc" ? "↑" : "↓"}</span>;
+    return <span className="ml-1 font-bold text-accent">{sortDir === "asc" ? "▲" : "▼"}</span>;
   }
 
   return (
-    <div className="border border-line rounded-lg bg-panel overflow-auto max-h-[calc(100vh-230px)] shadow-xs relative">
+    <div className="border border-line rounded-lg bg-white overflow-auto max-h-[calc(100vh-230px)] shadow-xs relative isolate">
       <table
-        className="w-full text-sm border-collapse table-fixed"
+        className="w-full text-sm border-separate border-spacing-0 table-fixed"
         style={{ minWidth: `${totalTableWidth}px` }}
       >
         <colgroup>
@@ -1334,12 +1628,11 @@ function LeadsTable({
           <col style={{ width: `${colWidths.name}px` }} />
           <col style={{ width: `${colWidths.phone}px` }} />
           <col style={{ width: `${colWidths.campaign}px` }} />
-          <col style={{ width: `${colWidths.assigned}px` }} />
           <col style={{ width: `${colWidths.status}px` }} />
         </colgroup>
-        <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_#e5e7eb]">
-          <tr className="text-left text-xs text-subtle bg-white">
-            <Th className="w-[40px] px-4"><input type="checkbox" checked={allPageSelected} onChange={toggleAll} className="rounded border-line accent-accent cursor-pointer" /></Th>
+        <thead className="sticky top-0 z-20 bg-[#E5EAF0]">
+          <tr className="text-left text-xs bg-[#E5EAF0]">
+            <Th className="w-[40px] px-3.5"><input type="checkbox" checked={allPageSelected} onChange={toggleAll} className="rounded border-line accent-accent cursor-pointer" /></Th>
             <ResizableTh
               width={colWidths.time}
               minWidth={MIN_COL_WIDTHS.time}
@@ -1383,14 +1676,6 @@ function LeadsTable({
               Campaign
             </ResizableTh>
             <ResizableTh
-              width={colWidths.assigned}
-              minWidth={MIN_COL_WIDTHS.assigned}
-              onResize={(w) => handleResizeColumn("assigned", w)}
-              onReset={() => handleResetColumn("assigned")}
-            >
-              Assigned
-            </ResizableTh>
-            <ResizableTh
               width={colWidths.status}
               minWidth={MIN_COL_WIDTHS.status}
               onResize={(w) => handleResizeColumn("status", w)}
@@ -1400,7 +1685,7 @@ function LeadsTable({
             </ResizableTh>
           </tr>
         </thead>
-        <tbody className="divide-y divide-line">
+        <tbody className="bg-white">
           {leads.map((lead) => {
             const campaign = formatCampaignName(lead.campaign_name);
             const adGroup = truncate(displayOrDash(lead.ad_group_name), 28);
@@ -1411,16 +1696,16 @@ function LeadsTable({
               <tr
                 key={lead.id}
                 onClick={() => onSelectLead(lead)}
-                className={`transition-colors duration-1000 cursor-pointer select-none ${
+                className={`transition-colors cursor-pointer select-none ${
                   isSelected
-                    ? "bg-accent-soft/60 hover:bg-accent-soft/80"
+                    ? "bg-emerald-50/80 hover:bg-emerald-50"
                     : highlightedRows.has(lead.id)
-                    ? "bg-emerald-500/10 hover:bg-emerald-500/20"
-                    : "hover:bg-canvas/80 bg-panel"
+                    ? "bg-emerald-500/10 hover:bg-emerald-500/15"
+                    : "bg-white hover:bg-slate-50/80"
                 }`}
               >
                 {/* Checkbox */}
-                <Td className="w-[40px] px-4" onClick={(e: any) => e.stopPropagation()}>
+                <Td className="w-[40px] px-3.5" onClick={(e: any) => e.stopPropagation()}>
                   <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => toggleOne(lead.id)} className="rounded border-line accent-accent cursor-pointer" />
                 </Td>
                 
@@ -1429,7 +1714,7 @@ function LeadsTable({
                   <div className="flex items-center gap-2">
                     {isNew && (
                       <span
-                        className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0"
+                        className="inline-block w-2 h-2 rounded-full bg-emerald-600 shrink-0 ring-2 ring-emerald-200"
                         title="New unread lead"
                         aria-hidden
                       />
@@ -1437,11 +1722,11 @@ function LeadsTable({
                     {(() => {
                       const { dateStr, timeStr } = formatLeadDateTime(lead.source_submitted_at);
                       return (
-                        <div className="flex flex-col gap-0.5" suppressHydrationWarning>
-                          <span className="font-semibold text-ink" suppressHydrationWarning>
+                        <div className="flex flex-col" suppressHydrationWarning>
+                          <span className="font-semibold text-xs text-ink" suppressHydrationWarning>
                             {dateStr}
                           </span>
-                          <span className="text-xs text-subtle" suppressHydrationWarning>
+                          <span className="text-[11px] text-subtle font-mono" suppressHydrationWarning>
                             {timeStr}
                           </span>
                         </div>
@@ -1458,7 +1743,7 @@ function LeadsTable({
                 {/* Name & Email */}
                 <Td className="overflow-hidden">
                   <div className="flex flex-col">
-                    <span className="font-bold text-ink inline-flex items-center gap-1.5">
+                    <span className="text-[13px] font-semibold text-ink inline-flex items-center gap-1.5 truncate">
                       {displayOrDash(lead.full_name)}
                       {lead.full_name && (
                         <svg className="w-3.5 h-3.5 text-blue-500 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
@@ -1489,12 +1774,12 @@ function LeadsTable({
                 {/* Campaign & Child Ad Group */}
                 <Td title={lead.campaign_name || undefined} className="overflow-hidden">
                   <div className="flex flex-col gap-0.5 max-w-[280px] xl:max-w-none">
-                    <span className="font-medium text-ink truncate">
+                    <span className="text-xs font-medium text-ink truncate">
                       {campaign.title}
                     </span>
                     {lead.ad_group_name && lead.ad_group_name.trim() !== "" && lead.ad_group_name !== "—" && (
-                      <div className="flex items-center gap-1 text-xs text-subtle truncate" title={`Ad Group: ${lead.ad_group_name}`}>
-                        <span className="text-subtle/50 font-mono text-[11px]">↳</span>
+                      <div className="flex items-center gap-1 text-[11px] text-subtle truncate" title={`Ad Group: ${lead.ad_group_name}`}>
+                        <span className="text-subtle/50 font-mono text-[10px]">↳</span>
                         <span className="truncate">{lead.ad_group_name}</span>
                       </div>
                     )}
@@ -1503,43 +1788,12 @@ function LeadsTable({
                         {campaign.badges.map((b) => (
                           <span
                             key={b}
-                            className="text-[10px] px-1.5 py-0.2 bg-canvas text-subtle rounded border border-line font-medium"
+                            className="text-[10px] px-1.5 py-0.2 bg-slate-100 text-slate-700 rounded border border-slate-200 font-medium"
                           >
                             {b}
                           </span>
                         ))}
                       </div>
-                    )}
-                  </div>
-                </Td>
-
-                {/* Assigned To */}
-                <Td className="overflow-hidden" onClick={(e: any) => e.stopPropagation()}>
-                  <div className="flex flex-col gap-1">
-                    <select
-                      value={lead.assigned_to || ""}
-                      onChange={(e) => {
-                        e.stopPropagation(); // Prevent opening the lead detail drawer
-                        const newRepId = e.target.value || null;
-                        void onAssignLead(lead.id, newRepId);
-                      }}
-                      className={`text-xs rounded-lg border px-2.5 py-1 shadow-xs focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 cursor-pointer transition-colors w-full truncate ${
-                        lead.assigned_to
-                          ? "border-emerald-200 text-emerald-800 bg-emerald-50/60 font-semibold hover:bg-emerald-100/60"
-                          : "border-gray-200 text-gray-500 bg-gray-50/50 font-normal hover:bg-gray-100/70"
-                      }`}
-                    >
-                      <option value="">Unassigned</option>
-                      {salesTeam.map((rep) => (
-                        <option key={rep.id} value={rep.id}>
-                          {rep.full_name || rep.email}
-                        </option>
-                      ))}
-                    </select>
-                    {lead.assigned_to && lead.assigned_at && (
-                      <span className="text-[10px] text-subtle truncate pl-0.5" suppressHydrationWarning>
-                        {formatIST(lead.assigned_at)}
-                      </span>
                     )}
                   </div>
                 </Td>
@@ -1552,10 +1806,10 @@ function LeadsTable({
                       e.stopPropagation();
                       onToggleViewed(lead);
                     }}
-                    className={`text-xs border rounded px-2.5 py-1 transition-colors whitespace-nowrap font-medium shadow-2xs ${
+                    className={`text-xs border rounded-md px-2.5 py-1 transition-colors whitespace-nowrap font-medium shadow-2xs ${
                       isNew
-                        ? "border-accent/40 bg-accent-soft text-accent hover:bg-accent hover:text-white"
-                        : "border-line bg-panel hover:bg-canvas text-subtle hover:text-ink"
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 font-semibold"
+                        : "border-line bg-white hover:bg-slate-50 text-subtle hover:text-ink"
                     }`}
                   >
                     {isNew ? "Mark viewed" : "Mark unread"}
@@ -1621,8 +1875,8 @@ function ResizableTh({
     <th
       onClick={onClick}
       style={{ width: `${width}px`, minWidth: `${minWidth}px` }}
-      className={`px-3 py-2.5 font-medium border-b border-line whitespace-nowrap relative select-none group/th ${
-        onClick ? "cursor-pointer hover:bg-canvas/50" : ""
+      className={`px-3.5 py-3 text-[11px] font-semibold tracking-wider text-[#17212F] bg-[#E5EAF0] border-b-2 border-[#D5DCE5] whitespace-nowrap relative select-none group/th ${
+        onClick ? "cursor-pointer hover:bg-[#D8DFE8]" : ""
       } ${className}`}
     >
       <div className="flex items-center gap-1.5 pr-2 overflow-hidden">{children}</div>
@@ -1641,10 +1895,10 @@ function ResizableTh({
         title="Drag to resize column (Double-click to reset)"
       >
         <div
-          className={`w-[2px] h-4 rounded-full transition-colors ${
+          className={`w-[2px] h-3.5 rounded-full transition-colors ${
             isResizing
               ? "bg-accent h-full"
-              : "bg-line group-hover/handle:bg-accent group-hover/th:bg-subtle/50"
+              : "bg-[#B0BCCB] group-hover/handle:bg-accent group-hover/th:bg-subtle/50"
           }`}
         />
       </div>
@@ -1656,8 +1910,8 @@ function Th({ children, onClick, className = "" }: { children?: React.ReactNode;
   return (
     <th
       onClick={onClick}
-      className={`px-3 py-2.5 font-medium border-b border-line whitespace-nowrap ${
-        onClick ? "cursor-pointer hover:bg-canvas/50" : ""
+      className={`px-3.5 py-3 text-[11px] font-semibold tracking-wider text-[#17212F] bg-[#E5EAF0] border-b-2 border-[#D5DCE5] whitespace-nowrap ${
+        onClick ? "cursor-pointer hover:bg-[#D8DFE8]" : ""
       } ${className}`}
     >
       <div className="flex items-center gap-1.5">{children}</div>
@@ -1667,202 +1921,9 @@ function Th({ children, onClick, className = "" }: { children?: React.ReactNode;
 
 function Td({ children, title, className = "", onClick }: { children: React.ReactNode; title?: string; className?: string; onClick?: (e: React.MouseEvent<HTMLTableCellElement>) => void }) {
   return (
-    <td className={`px-3 py-2.5 align-middle text-ink whitespace-nowrap ${className}`} title={title} onClick={onClick}>
+    <td className={`px-3.5 py-3 align-middle text-ink whitespace-nowrap border-b border-[#D5DCE5] ${className}`} title={title} onClick={onClick}>
       {children}
     </td>
-  );
-}
-
-function FiltersBar(props: {
-  search: string;
-  onSearch: (v: string) => void;
-  source: LeadSource | "all";
-  onSource: (v: LeadSource | "all") => void;
-  campaign: string;
-  onCampaign: (v: string) => void;
-  campaignOptions: string[];
-  adGroup: string;
-  onAdGroup: (v: string) => void;
-  adGroupOptions: string[];
-  datePreset: DatePreset;
-  onDatePreset: (v: DatePreset) => void;
-  customFrom: string;
-  onCustomFrom: (v: string) => void;
-  customTo: string;
-  onCustomTo: (v: string) => void;
-  onReset: () => void;
-  rightActions?: React.ReactNode;
-}) {
-  const selectClass =
-    "text-sm font-medium border border-line rounded-md px-3 py-2 bg-panel text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent shadow-2xs appearance-none pr-8 bg-[url('data:image/svg+xml;utf8,<svg fill=\"none\" stroke=\"%236b7280\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M19 9l-7 7-7-7\"></path></svg>')] bg-no-repeat bg-[position:right_0.75rem_center] bg-[length:1em_1em]";
-
-  return (
-    <div className="space-y-4">
-      <div className="relative">
-        <input
-          type="text"
-          value={props.search}
-          onChange={(e) => props.onSearch(e.target.value)}
-          placeholder="Search name, phone, email, campaign, budget, BHK, planning..."
-          className="w-full rounded-lg border border-line pl-11 pr-12 py-3 text-sm bg-panel text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent shadow-2xs placeholder:text-subtle/70 font-medium"
-        />
-        <svg
-          className="w-5 h-5 text-subtle absolute left-4 top-3.5 pointer-events-none"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        {props.search ? (
-          <button
-            type="button"
-            onClick={() => props.onSearch("")}
-            className="absolute right-3.5 top-3 p-1 rounded-md text-subtle hover:text-ink hover:bg-canvas transition-colors cursor-pointer"
-            title="Clear search"
-            aria-label="Clear search"
-          >
-            <svg
-              className="w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        ) : (
-          <div className="absolute right-4 top-3.5 text-[11px] font-medium text-subtle border border-line rounded px-1.5 py-0.5 bg-canvas pointer-events-none">
-            ⌘ K
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            className={selectClass}
-            value={props.source}
-            onChange={(e) => props.onSource(e.target.value as LeadSource | "all")}
-          >
-            <option value="all">All sources</option>
-            <option value="google_ads">Google Ads</option>
-            <option value="meta_ads">Meta Ads</option>
-            <option value="99acres">99acres</option>
-            <option value="magicbricks">MagicBricks</option>
-            <option value="direct_walk_in">Direct Walk-in</option>
-            <option value="phone_call">Phone Call</option>
-            <option value="referral">Referral</option>
-          </select>
-
-          <OptionSelect
-            label={props.source === "all" ? "Select lead source first" : "All campaigns"}
-            value={props.campaign}
-            onChange={props.onCampaign}
-            options={props.campaignOptions}
-            className={selectClass}
-            disabled={props.source === "all"}
-            showWhenEmpty
-          />
-          <OptionSelect
-            label="All ad groups"
-            value={props.adGroup}
-            onChange={props.onAdGroup}
-            options={props.adGroupOptions}
-            className={selectClass}
-          />
-          
-          <div className="flex items-center gap-2">
-            <div className="relative inline-block">
-              <svg className="w-4 h-4 text-subtle absolute left-3 top-2.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="16" y1="2" x2="16" y2="6"></line>
-                <line x1="8" y1="2" x2="8" y2="6"></line>
-                <line x1="3" y1="10" x2="21" y2="10"></line>
-              </svg>
-              <select
-                className={`${selectClass} pl-9`}
-                value={props.datePreset}
-                onChange={(e) => props.onDatePreset(e.target.value as DatePreset)}
-              >
-                <option value="today">Today</option>
-                <option value="yesterday">Yesterday</option>
-                <option value="last7days">Last 7 days</option>
-                <option value="last30days">Last 30 days</option>
-                <option value="thisMonth">This month</option>
-                <option value="all">All time</option>
-                <option value="custom">Custom range</option>
-              </select>
-            </div>
-          </div>
-
-          {props.datePreset === "custom" && (
-            <div className="inline-flex items-center gap-1.5">
-              <input
-                type="date"
-                className={selectClass}
-                value={props.customFrom}
-                onChange={(e) => props.onCustomFrom(e.target.value)}
-              />
-              <span className="text-xs text-subtle">to</span>
-              <input
-                type="date"
-                className={selectClass}
-                value={props.customTo}
-                onChange={(e) => props.onCustomTo(e.target.value)}
-              />
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            className="text-sm font-medium text-ink underline underline-offset-2 decoration-subtle/40 hover:decoration-ink cursor-pointer"
-            onClick={props.onReset}
-          >
-            Reset
-          </button>
-          {props.rightActions}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function OptionSelect({
-  label,
-  value,
-  onChange,
-  options,
-  className,
-  disabled = false,
-  showWhenEmpty = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-  className: string;
-  disabled?: boolean;
-  showWhenEmpty?: boolean;
-}) {
-  if (options.length === 0 && !showWhenEmpty) return null;
-  return (
-    <select className={className} value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled}>
-      <option value="all">{label}</option>
-      {options.map((opt) => (
-        <option key={opt} value={opt}>
-          {truncate(opt, 40).display}
-        </option>
-      ))}
-    </select>
   );
 }
 
@@ -1886,7 +1947,7 @@ function PaginationBar({
   onPageChange: (page: number | ((prev: number) => number)) => void;
 }) {
   return (
-    <div className="bg-panel border border-line rounded-lg p-3 px-4 flex flex-wrap items-center justify-between gap-4 text-xs shadow-2xs">
+    <div className="bg-white border border-line rounded-lg p-3 px-4 flex flex-wrap items-center justify-between gap-4 text-xs shadow-xs">
       {/* Left side: Showing X to Y of Z leads */}
       <div className="text-subtle font-medium">
         Showing <span className="font-semibold text-ink">{startItem}</span> to{" "}
@@ -1902,7 +1963,7 @@ function PaginationBar({
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="bg-canvas border border-line rounded px-2 py-1 text-ink font-medium outline-none focus:border-accent"
+            className="bg-white border border-line rounded-md px-2 py-1 text-ink font-medium shadow-2xs outline-none focus:border-accent hover:border-slate-400 transition-colors"
           >
             <option value={10}>10</option>
             <option value={25}>25</option>
@@ -1923,7 +1984,7 @@ function PaginationBar({
             type="button"
             disabled={currentPage <= 1}
             onClick={() => onPageChange((p) => Math.max(1, p - 1))}
-            className="px-2.5 py-1 rounded border border-line bg-panel text-ink font-medium hover:bg-canvas disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-2.5 py-1 rounded-md border border-line bg-white text-ink font-semibold shadow-2xs hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Previous
           </button>
@@ -1931,7 +1992,7 @@ function PaginationBar({
             type="button"
             disabled={currentPage >= totalPages}
             onClick={() => onPageChange((p) => Math.min(totalPages, p + 1))}
-            className="px-2.5 py-1 rounded border border-line bg-panel text-ink font-medium hover:bg-canvas disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-2.5 py-1 rounded-md border border-line bg-white text-ink font-semibold shadow-2xs hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Next
           </button>

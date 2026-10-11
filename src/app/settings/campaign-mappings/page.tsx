@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/app/AppHeader";
 import { isAdmin } from "@/lib/auth/authorization";
@@ -123,20 +122,6 @@ export default async function CampaignMappingsPage() {
             <p className="text-subtle mt-1 text-sm">
               Map raw numeric IDs from Google Ads and Property IDs from real estate portals to human-readable names.
             </p>
-          </div>
-          <div className="flex items-center bg-canvas p-1 rounded-lg border border-line shrink-0">
-            <Link
-              href="/settings/system"
-              className="px-3 py-1.5 text-xs font-semibold rounded-md text-subtle hover:text-ink transition-colors"
-            >
-              System Settings
-            </Link>
-            <Link
-              href="/settings/campaign-mappings"
-              className="px-3 py-1.5 text-xs font-semibold rounded-md bg-panel text-accent shadow-2xs transition-colors"
-            >
-              Campaign Mappings
-            </Link>
           </div>
         </div>
         <CampaignMappingsClient 

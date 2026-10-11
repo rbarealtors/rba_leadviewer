@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 
 interface SystemSettingsClientProps {
   initialMaxSourceMb: number;
@@ -66,29 +65,13 @@ export function SystemSettingsClient({
 
   return (
     <div className="space-y-6">
-      {/* Header & Sub-navigation Tabs */}
+      {/* Header */}
       <div className="border-b border-line pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-ink">Settings</h1>
+          <h1 className="text-xl font-bold text-ink">System Settings</h1>
           <p className="text-xs text-subtle mt-0.5">
-            Manage system-wide configuration, limits, and campaign mappings.
+            Manage system-wide configuration and file processing limits.
           </p>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="flex items-center bg-canvas p-1 rounded-lg border border-line shrink-0">
-          <Link
-            href="/settings/system"
-            className="px-3 py-1.5 text-xs font-semibold rounded-md bg-panel text-accent shadow-2xs transition-colors"
-          >
-            System Settings
-          </Link>
-          <Link
-            href="/settings/campaign-mappings"
-            className="px-3 py-1.5 text-xs font-semibold rounded-md text-subtle hover:text-ink transition-colors"
-          >
-            Campaign Mappings
-          </Link>
         </div>
       </div>
 

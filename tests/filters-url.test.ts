@@ -97,5 +97,23 @@ describe("filters-url", () => {
     expect(query).not.toContain("page");
     expect(query).not.toContain("pageSize");
   });
+
+  it("parses and serializes unassigned and needs_followup view modes", () => {
+    const unassignedParams = new URLSearchParams("view=unassigned");
+    expect(parseLeadsUrlParams(unassignedParams).view).toBe("unassigned");
+    const unassignedQuery = buildLeadsUrlQuery({
+      ...DEFAULT_FILTER_PARAMS,
+      view: "unassigned",
+    });
+    expect(unassignedQuery).toContain("view=unassigned");
+
+    const followupParams = new URLSearchParams("view=needs_followup");
+    expect(parseLeadsUrlParams(followupParams).view).toBe("needs_followup");
+    const followupQuery = buildLeadsUrlQuery({
+      ...DEFAULT_FILTER_PARAMS,
+      view: "needs_followup",
+    });
+    expect(followupQuery).toContain("view=needs_followup");
+  });
 });
 

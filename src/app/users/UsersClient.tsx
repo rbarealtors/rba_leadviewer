@@ -175,7 +175,7 @@ function UsersTable({ users, onEdit, onDelete }: { users: ManagedUser[]; onEdit:
   return (
     <div className="border border-line rounded-lg bg-panel overflow-x-auto">
       <table className="w-full text-sm min-w-[760px]">
-        <thead><tr className="border-b border-line text-left text-xs text-subtle"><th className="px-3 py-2 font-medium">Name</th><th className="px-3 py-2 font-medium">Email</th><th className="px-3 py-2 font-medium">Role</th><th className="px-3 py-2 font-medium">Created</th><th className="px-3 py-2 font-medium">Last Sign In</th><th className="px-3 py-2 font-medium">Actions</th></tr></thead>
+        <thead><tr className="border-b border-[#D5DCE5] bg-[#E5EAF0] text-left text-xs font-semibold text-[#17212F]"><th className="px-3 py-2.5">Name</th><th className="px-3 py-2.5">Email</th><th className="px-3 py-2.5">Role</th><th className="px-3 py-2.5">Created</th><th className="px-3 py-2.5">Last Sign In</th><th className="px-3 py-2.5">Actions</th></tr></thead>
         <tbody>
           {users.length === 0 ? <tr><td colSpan={6} className="px-3 py-12 text-center text-sm text-subtle">No users found.</td></tr> : users.map((user) => (
             <tr key={user.id} className="border-b border-line last:border-0">

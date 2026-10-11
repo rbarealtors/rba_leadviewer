@@ -48,13 +48,13 @@ export function PhoneCell({
   }
 
   return (
-    <div className="flex flex-col gap-2 py-0.5" onClick={(e) => e.stopPropagation()}>
+    <div className="flex flex-col gap-1.5 py-0.5" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center gap-1.5">
         <a
           href={`tel:${sanitizePhoneForCopy(phone)}`}
           title={`Call ${cleanDisplay}`}
           onClick={(e) => e.stopPropagation()}
-          className="text-[13px] font-semibold text-ink hover:text-accent hover:underline decoration-accent/30 underline-offset-2"
+          className="text-[13px] font-semibold text-ink hover:text-accent hover:underline decoration-accent/30 underline-offset-2 tracking-tight"
         >
           {cleanDisplay}
         </a>
@@ -67,8 +67,8 @@ export function PhoneCell({
           onClick={handleCopy}
           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border transition-colors shrink-0 ${
             copied
-              ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-              : "bg-panel text-subtle hover:text-ink border-line hover:bg-canvas"
+              ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold"
+              : "bg-panel text-slate-600 hover:text-ink border-line hover:bg-slate-100"
           }`}
           title={copied ? "Copied to clipboard!" : "Copy phone number"}
         >
@@ -85,7 +85,7 @@ export function PhoneCell({
             </>
           ) : (
             <>
-              <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-3 h-3 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
               </svg>
@@ -101,7 +101,7 @@ export function PhoneCell({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-[#25D366] hover:bg-[#20bd5a] text-white shadow-xs transition-colors shrink-0 border border-[#25D366]"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-[#25D366] hover:bg-[#20bd5a] text-white shadow-2xs transition-colors shrink-0 border border-[#20bd5a]"
             title="Open WhatsApp Web chat"
           >
             {/* WhatsApp speech bubble icon */}

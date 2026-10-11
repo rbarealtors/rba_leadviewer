@@ -12,7 +12,7 @@ export type DatePreset =
   | "custom";
 
 export type SortKey = "time" | "name" | "budget" | "bhk";
-export type ViewMode = "all" | "new" | "needs_review";
+export type ViewMode = "all" | "new" | "needs_review" | "unassigned" | "needs_followup";
 
 export interface LeadsFilterParams {
   search: string;
@@ -70,7 +70,7 @@ const VALID_DATE_PRESETS: Set<string> = new Set([
 ]);
 
 const VALID_SORT_KEYS: Set<string> = new Set(["time", "name", "budget", "bhk"]);
-const VALID_VIEWS: Set<string> = new Set(["all", "new", "needs_review"]);
+const VALID_VIEWS: Set<string> = new Set(["all", "new", "needs_review", "unassigned", "needs_followup"]);
 
 export function parseLeadsUrlParams(
   searchParams: URLSearchParams | { get: (name: string) => string | null }

@@ -5,15 +5,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#1a1d23",
-        subtle: "#6b7280",
-        line: "#e5e7eb",
+        ink: "#17212F",
+        subtle: "#566273",
+        line: "#D5DCE5",
         panel: "#ffffff",
-        canvas: "#f7f8fa",
+        canvas: "#F3F5F8",
         accent: "#1f4b3f",
         "accent-soft": "#e9f1ee",
         new: "#b45309",
         "new-soft": "#fef3e2",
+        "header-bg": "#174B3A",
       },
       fontSize: {
         xs: ["12px", "16px"],

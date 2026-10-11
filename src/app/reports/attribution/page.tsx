@@ -57,17 +57,17 @@ export default async function AttributionReportPage() {
               aria-label="Attribution funnel report table"
             >
               <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 z-10 bg-panel border-b border-line text-xs font-semibold text-subtle uppercase tracking-wider">
-                  <tr>
-                    <th className="px-6 py-3.5 whitespace-nowrap bg-panel">Source</th>
-                    <th className="px-6 py-3.5 whitespace-nowrap bg-panel">Campaign</th>
-                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-panel">Leads</th>
-                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-panel">Contacted</th>
-                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-panel">Interested</th>
-                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-panel">Site Visit</th>
-                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-panel">Booking</th>
-                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-panel">Closed Won</th>
-                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-panel">Lost</th>
+                <thead className="sticky top-0 z-10 bg-[#E5EAF0] border-b-2 border-[#D5DCE5] text-xs font-semibold text-[#17212F] uppercase tracking-wider">
+                  <tr className="bg-[#E5EAF0]">
+                    <th className="px-6 py-3.5 whitespace-nowrap bg-[#E5EAF0]">Source</th>
+                    <th className="px-6 py-3.5 whitespace-nowrap bg-[#E5EAF0]">Campaign</th>
+                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-[#E5EAF0]">Leads</th>
+                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-[#E5EAF0]">Contacted</th>
+                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-[#E5EAF0]">Interested</th>
+                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-[#E5EAF0]">Site Visit</th>
+                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-[#E5EAF0]">Booking</th>
+                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-[#E5EAF0]">Closed Won</th>
+                    <th className="px-6 py-3.5 whitespace-nowrap text-right bg-[#E5EAF0]">Lost</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line text-sm text-ink font-medium">

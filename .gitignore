@@ -20,6 +20,7 @@ coverage/
 .DS_Store
 .vscode/
 *.tsbuildinfo
+.acres99_rate_limit.json
 
 
 # Python
